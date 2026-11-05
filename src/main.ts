@@ -14,6 +14,7 @@ import { minimumClearance } from './physics/ground';
 import type { AppContext } from './ui/context';
 import { mountConcepts } from './ui/concepts';
 import { mountTour } from './ui/tour';
+import { mountPrintTab } from './ui/printTab';
 
 const store = new Store(initialState);
 let polars: PolarSet | null = null;
@@ -78,6 +79,7 @@ const ctx: AppContext = {
 };
 mountConcepts(document.getElementById('concepts')!, ctx);
 mountTour(ctx);
+mountPrintTab(document.getElementById('print')!, ctx);
 
 // ── 점성 polar 데이터 불러오기 (없어도 비점성 해석은 동작) ──
 fetch(`${import.meta.env.BASE_URL}data/polars.json`)

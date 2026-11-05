@@ -395,8 +395,10 @@ export class WingView {
       const F = s.forcesViscous.downN;
       const xOff = both ? 10 : 0;
       arrow(ox + xOff, oy, 0, F * unit, COLORS.viscous, false, `점성 다운포스 ${fmt(F)}`, 'right');
+      // 항력: 흐름 방향(→). 날개와 겹치지 않게 뒤끝에서 시작해 그린다.
       const D = s.forcesViscous.dragN;
-      arrow(ox, oy, D * unit, 0, COLORS.drag, false, `항력 ${fmt(D)}`, 'right');
+      const te = Math.max(...s.airfoil.coords.map((p) => this.toPx(airfoilToDisplay(p, s.inviscid.alpha))[0]));
+      arrow(te + 6, oy, D * unit, 0, COLORS.drag, false, `항력 ${fmt(D)}`, 'below');
     } else if (showInv) {
       // 비점성이면 항력 화살표가 없다 → 그림 오른쪽 아래에 안내 문구
       g.font = '600 12px system-ui, sans-serif';

@@ -48,6 +48,7 @@ export function renderNumbers(root: HTMLElement, s: Snapshot): void {
         <tr><td>날개 면적 S</td><td>${(s.area * 1e4).toFixed(1)} cm²</td></tr>
       </tbody>
     </table>
+    ${showVis && v && s.re < 70000 ? '<div class="warn">낮은 레이놀즈 수(Re &lt; 70,000): 날개 표면 경계층이 층류 상태로 쉽게 떨어져(층류 박리) 비점성 결과와 차이가 큽니다. 이 구간은 바람의 난류 정도에 매우 민감해서, 선풍기 실험값이 계산과 크게 다를 수 있습니다.</div>' : ''}
     ${noData ? '<div class="warn">이 날개·방향의 점성 데이터가 없습니다. 값을 지어내지 않고 비워 둡니다. (tools/generate_polars.py 로 추가 가능)</div>' : ''}
     <p class="muted" style="margin:8px 0 0">g 값 = 힘 ÷ 9.8 × 1000. 저울에 올린 날개가 받는 다운포스를 "몇 그램 무거워진 것"으로 바꾼 값입니다.</p>
   `;

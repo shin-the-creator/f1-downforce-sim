@@ -40,8 +40,12 @@ describe('점성 polar 보간', () => {
     expect(lookupViscous(fake, '9999', false, 1, 1e5)).toBeNull();
   });
 
-  it('실속각: 최대 다운포스 받음각, 끝까지 증가하면 null', () => {
+  it('실속각: 처음 꺾이는 받음각, 끝까지 증가하면 null', () => {
     expect(stallAngle([0, 5, 10, 15], [0, 1, 1.4, 1.2])).toBe(10);
     expect(stallAngle([0, 5, 10], [0, 1, 2])).toBeNull();
+    // 실속 후 다시 오르는 경우에도 첫 꺾임을 고른다
+    expect(stallAngle([0, 5, 10, 15, 20], [0, 1, 1.4, 1.2, 1.6])).toBe(10);
+    // 아주 작은 흔들림은 무시
+    expect(stallAngle([0, 5, 10, 15], [0, 1, 0.999, 1.5])).toBeNull();
   });
 });

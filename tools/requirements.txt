@@ -1,0 +1,3 @@
+neuralfoil==0.3.3
+aerosandbox==4.2.10
+numpy==2.5.4

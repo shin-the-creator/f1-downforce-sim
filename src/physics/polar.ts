@@ -8,7 +8,7 @@
  *   alpha_deg : 다운포스 방향 받음각 (역방향 날개면 앞전이 숙여질수록 +)
  *   cdf       : 다운포스 계수 (아래쪽 +)
  *   cd        : 항력계수 (항상 +)
- *   cm        : 1/4 시위점 피칭 모멘트 계수 (NeuralFoil 의 원래 부호를 날개 반전에 맞게 변환)
+ *   cm        : 1/4 시위점 피칭 모멘트 계수 (NeuralFoil 의 물리 부호 그대로, 기수 들림 +)
  *   confidence: NeuralFoil 이 스스로 추정한 신뢰도 (0~1). 낮으면 결과를 조심해서 볼 것.
  *
  * ■ 레이놀즈 수 보간
@@ -133,12 +133,18 @@ export function viscousCurve(
 }
 
 /**
- * 실속각: 주어진 받음각 범위에서 다운포스 계수가 최대가 되는 받음각.
- * 범위 끝에서 최대면 "범위 안에서는 실속 없음"으로 보고 null.
+ * 실속각: 받음각을 키울 때 다운포스 계수가 "처음으로 꺾여 내려가는" 받음각 (첫 번째 극대).
+ *
+ * 전체 최댓값을 쓰지 않는 이유: 낮은 Re(예: 40,000)에서는 실속 후 납작한 판처럼
+ * 다시 천천히 증가하는 구간이 있어서, 전체 최댓값이 실속 이후에 나올 수 있다.
+ * 작은 수치 흔들림은 무시하도록 tol(기본 0.005) 이상 떨어질 때만 꺾였다고 본다.
+ * 범위 끝까지 한 번도 꺾이지 않으면 null (범위 안에서는 실속 없음).
  */
-export function stallAngle(alphas: number[], cdf: number[]): number | null {
-  let best = 0;
-  for (let k = 1; k < cdf.length; k++) if (cdf[k] > cdf[best]) best = k;
-  if (best === cdf.length - 1) return null;
-  return alphas[best];
+export function stallAngle(alphas: number[], cdf: number[], tol = 0.005): number | null {
+  let peak = 0;
+  for (let k = 1; k < cdf.length; k++) {
+    if (cdf[k] >= cdf[peak]) peak = k;
+    else if (cdf[peak] - cdf[k] > tol) return alphas[peak];
+  }
+  return null;
 }

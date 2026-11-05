@@ -81,7 +81,7 @@ const vLabels: Plugin<'line'> = {
 
 Chart.register(alphaMarker, vLabels);
 
-function makeChart(canvas: HTMLCanvasElement, xTitle: string, yTitle: string, reverseY = false): Chart<'line', XY[]> {
+export function makeChart(canvas: HTMLCanvasElement, xTitle: string, yTitle: string, reverseY = false): Chart<'line', XY[]> {
   return new Chart(canvas, {
     type: 'line',
     data: { datasets: [] },

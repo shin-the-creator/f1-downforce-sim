@@ -41,9 +41,6 @@ body {
   background: #111827;
   color: #f9fafb;
   padding: 16px 0 0;
-  position: sticky;
-  top: 0;
-  z-index: 20;
 }
 .site-header h1 {
   margin: 0;

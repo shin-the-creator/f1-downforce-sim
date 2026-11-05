@@ -7,6 +7,7 @@ import { computeSnapshot, type Snapshot } from './sim';
 import { mountControls } from './ui/controls';
 import { WingView } from './ui/wingView';
 import { renderNumbers } from './ui/numbers';
+import { Charts } from './ui/charts';
 import { cpGradientCss, CP_MAX, CP_MIN } from './ui/colors';
 import type { PolarSet } from './physics/polar';
 import { minimumClearance } from './physics/ground';
@@ -37,11 +38,13 @@ document.getElementById('legend-ticks')!.innerHTML = [-3, -2, -1, 0, 1]
 mountControls(document.getElementById('controls')!, store);
 const view = new WingView(document.getElementById('wing-canvas') as HTMLCanvasElement);
 const numbersEl = document.getElementById('numbers')!;
+const charts = new Charts(document.getElementById('charts')!);
 
 function refresh(): void {
   snapshot = computeSnapshot(store.get(), polars);
   view.update(snapshot);
   renderNumbers(numbersEl, snapshot);
+  charts.update(snapshot, polars);
   const st = snapshot.state;
   const note = document.getElementById('view-note')!;
   note.textContent =
@@ -71,4 +74,4 @@ fetch(`${import.meta.env.BASE_URL}data/polars.json`)
     refresh();
   });
 
-export { store };
+export { store, charts, view };

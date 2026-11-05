@@ -103,3 +103,13 @@ export function computeSnapshot(state: AppState, polars: PolarSet | null): Snaps
     ldViscous: viscous ? liftToDrag(viscous.cdf, viscous.cd) : null,
   };
 }
+
+/** 그래프용 받음각 목록: 점성 데이터와 같은 −4° ~ 20°, 0.5° 간격 */
+export const SWEEP_ALPHAS = Array.from({ length: 49 }, (_, k) => -4 + 0.5 * k);
+/** 비점성 곡선은 거의 직선이라 1° 간격으로 충분하다 (계산 시간 절약) */
+export const INVISCID_SWEEP_ALPHAS = Array.from({ length: 25 }, (_, k) => -4 + k);
+
+/** 비점성 다운포스 계수 곡선 */
+export function inviscidCurve(code: string, inverted: boolean, groundHc?: number): number[] {
+  return INVISCID_SWEEP_ALPHAS.map((a) => downforceCoefficient(getInviscid(code, inverted, a, groundHc).cl));
+}

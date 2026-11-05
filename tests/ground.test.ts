@@ -49,3 +49,13 @@ describe('그라운드 이펙트 (영상법)', () => {
     expect(minimumClearance(inv.coords, 10 * DEG, 0.05)).toBeLessThan(0);
   });
 });
+
+describe('그라운드 이펙트: 좁은 틈의 발산은 모델 한계 (수치 오류 아님)', () => {
+  it('간격이 매우 좁을 때 큰 값이 나오지만, 패널 수를 늘려도 같은 값으로 수렴', () => {
+    const a = physicalAlphaRad(6, true);
+    const coarse = -solveGroundEffect(inv.coords, a, 0.15).cl;
+    const fine = -solveGroundEffect(generateNaca4('4412', { inverted: true, panelsPerSide: 140 }).coords, a, 0.15).cl;
+    expect(coarse).toBeGreaterThan(5);
+    expect(Math.abs(fine - coarse) / fine).toBeLessThan(0.01);
+  });
+});

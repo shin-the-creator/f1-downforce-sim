@@ -17,7 +17,9 @@ import {
 } from 'chart.js';
 import { liftToDrag } from '../physics/forces';
 import { stallAngle, viscousCurve, type PolarSet } from '../physics/polar';
-import { INVISCID_SWEEP_ALPHAS, inviscidCurve, SWEEP_ALPHAS, type Snapshot } from '../sim';
+import { getAirfoil, getInviscid, INVISCID_SWEEP_ALPHAS, inviscidCurve, SWEEP_ALPHAS, type Snapshot } from '../sim';
+import { GROUND_MIN_GAP, minimumClearance } from '../physics/ground';
+import { downforceCoefficient, physicalAlphaRad } from '../physics/wing';
 import { COLORS } from './colors';
 
 Chart.register(LineController, ScatterController, LineElement, PointElement, LinearScale, Legend, Tooltip);
@@ -120,6 +122,7 @@ export class Charts {
   cl: Chart<'line', XY[]>;
   cd: Chart<'line', XY[]>;
   ld: Chart<'line', XY[]>;
+  ground: Chart<'line', XY[]>;
   private showAllRe = false;
   private last: { s: Snapshot; polars: PolarSet | null } | null = null;
   private pending: number | undefined;
@@ -145,6 +148,11 @@ export class Charts {
         <h3>양항비 L/D – 받음각</h3>
         <div class="chart-canvas-wrap"><canvas id="chart-ld"></canvas></div>
       </div>
+      <div class="chart-box wide" id="chart-ground-box" hidden>
+        <h3>다운포스 계수 C<sub>L</sub> – 지면 높이 h/c <span class="badge badge-inviscid">비점성(영상법)</span></h3>
+        <div class="chart-canvas-wrap"><canvas id="chart-ground"></canvas></div>
+        <p class="muted" style="margin:4px 0 0">현재 받음각에서 지면 높이만 바꿔 계산. 점선 = 지면이 없을 때. 날개와 지면의 간격이 시위의 5 % 보다 좁은 높이는 그리지 않습니다 — 비점성 모델은 좁은 틈에서도 박리가 없어 다운포스가 비현실적으로 끝없이 커지기 때문입니다. 실제 날개는 너무 가까우면 박리로 다운포스가 오히려 줄어듭니다.</p>
+      </div>
       <div class="chart-box" id="chart-opts">
         <h3>그래프 설정</h3>
         <label class="row" style="gap:6px;font-size:0.9rem"><input type="checkbox" id="chart-allre" /> 점성 곡선을 Re 4만·10만·150만 모두 표시</label>
@@ -157,6 +165,7 @@ export class Charts {
     this.cl = makeChart(c('chart-cl'), '받음각 α (°)', 'C_L (다운포스 +)');
     this.cd = makeChart(c('chart-cd'), '받음각 α (°)', 'C_D');
     this.ld = makeChart(c('chart-ld'), '받음각 α (°)', 'L/D');
+    this.ground = makeChart(c('chart-ground'), '지면 높이 h/c (회전축 기준)', 'C_L (다운포스 +)');
     root.querySelector<HTMLInputElement>('#chart-allre')!.addEventListener('change', (e) => {
       this.showAllRe = (e.target as HTMLInputElement).checked;
       if (this.last) this.render(this.last.s, this.last.polars);
@@ -287,9 +296,37 @@ export class Charts {
       chart.options.scales!.x!.max = 20;
       chart.update();
     }
+    this.renderGround(s);
     // 현재 점 등은 범례에서 숨긴다
     for (const chart of [this.cl, this.cd, this.ld]) {
       chart.options.plugins!.legend!.labels!.filter = (item) => !String(item.text).startsWith('현재');
     }
+  }
+
+  /** 그라운드 이펙트: 현재 받음각에서 h/c 를 바꿔 가며 비점성 C_L 계산 */
+  private renderGround(s: Snapshot): void {
+    const st = s.state;
+    const box = document.getElementById('chart-ground-box')!;
+    box.hidden = !st.groundEffect;
+    if (!st.groundEffect) return;
+    const af = getAirfoil(st.code, st.inverted);
+    const a = physicalAlphaRad(st.alphaDeg, st.inverted);
+    const pts: XY[] = [];
+    for (let k = 1; k <= 30; k++) {
+      const h = Math.round(k * 0.05 * 100) / 100 + 0.05; // 0.10 ~ 1.55
+      // 날개–지면 최소 간격이 시위의 5 % 보다 작으면 제외: 비점성 모델은 좁은 틈에서
+      // 흐름이 박리되지 않으므로 다운포스가 비현실적으로 끝없이 커진다 (수치 오류가 아니라 모델의 한계)
+      if (minimumClearance(af.coords, a, h) < GROUND_MIN_GAP) continue;
+      pts.push({ x: h, y: downforceCoefficient(getInviscid(st.code, st.inverted, st.alphaDeg, h).cl) });
+    }
+    const free = s.state.groundEffect ? downforceCoefficient(getInviscid(st.code, st.inverted, st.alphaDeg).cl) : s.cdfInviscid;
+    this.ground.data.datasets = [
+      { label: `지면 효과 (α = ${st.alphaDeg}°)`, data: pts, borderColor: COLORS.inviscid, backgroundColor: COLORS.inviscid },
+      { label: '지면 없음', data: [{ x: 0.1, y: free }, { x: 1.6, y: free }], borderColor: '#6b7280', backgroundColor: '#6b7280', borderDash: [5, 4] },
+      { label: '현재', data: [{ x: st.groundHc, y: s.cdfInviscid }], borderColor: COLORS.highlight, backgroundColor: COLORS.highlight, showLine: false, pointRadius: 6 },
+    ];
+    this.ground.options.scales!.x!.min = 0;
+    this.ground.options.scales!.x!.max = 1.6;
+    this.ground.update();
   }
 }

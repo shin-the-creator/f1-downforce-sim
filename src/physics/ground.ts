@@ -36,6 +36,13 @@ export function groundLine(alpha: number, hc: number): MirrorLine {
   return { gx: PIVOT.x + hc * dy, gy: PIVOT.y - hc * dx, dx, dy };
 }
 
+/**
+ * 신뢰 가능한 최소 간격 (시위 대비 5 %).
+ * 이보다 좁으면 비점성 모델은 틈 사이 흐름을 끝없이 빠르게 만들어 다운포스가 발산한다.
+ * (예: NACA 4412 역방향, 6°, 간격 0.6 % → C_L ≈ 187. 패널 수를 늘려도 같은 값 → 수치 오류가 아닌 모델 한계)
+ */
+export const GROUND_MIN_GAP = 0.05;
+
 /** 날개의 가장 낮은 점과 지면 사이 거리 (시위 대비). 0 이하이면 날개가 지면에 닿는다. */
 export function minimumClearance(coords: Point[], alpha: number, hc: number): number {
   const g = groundLine(alpha, hc);

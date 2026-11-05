@@ -10,7 +10,7 @@ import { renderNumbers } from './ui/numbers';
 import { Charts } from './ui/charts';
 import { cpGradientCss, CP_MAX, CP_MIN } from './ui/colors';
 import type { PolarSet } from './physics/polar';
-import { minimumClearance } from './physics/ground';
+import { GROUND_MIN_GAP, minimumClearance } from './physics/ground';
 import type { AppContext } from './ui/context';
 import { mountConcepts } from './ui/concepts';
 import { mountTour } from './ui/tour';
@@ -59,8 +59,11 @@ function refresh(): void {
   const warn = document.getElementById('ctl-ground-warn')!;
   if (st.groundEffect) {
     const clr = minimumClearance(snapshot.airfoil.coords, snapshot.inviscid.alpha, st.groundHc);
-    warn.hidden = clr > 0.02;
-    warn.textContent = clr <= 0 ? '날개가 지면에 닿았습니다. h/c 를 키우세요.' : '날개가 지면에 매우 가깝습니다 (계산 신뢰도 낮음).';
+    warn.hidden = clr >= GROUND_MIN_GAP;
+    warn.textContent =
+      clr <= 0
+        ? '날개가 지면에 닿았습니다. h/c 를 키우세요.'
+        : `날개–지면 간격이 시위의 ${(clr * 100).toFixed(1)} % 로 매우 좁습니다. 비점성 모델은 이런 틈에서 박리를 무시해 다운포스를 비현실적으로 크게 계산합니다.`;
   }
   for (const cb of refreshListeners) cb(snapshot);
 }

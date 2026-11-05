@@ -56,11 +56,36 @@ export interface Panel {
   ny: number;
 }
 
+/**
+ * 거울(지면) 선: 영상법(image method)에서 쓰는 대칭선.
+ * 점 (gx, gy) 를 지나고 방향 (dx, dy) 인 직선. (dx, dy) 는 단위벡터.
+ */
+export interface MirrorLine {
+  gx: number;
+  gy: number;
+  dx: number;
+  dy: number;
+}
+
+/** 점 P 를 거울 선에 대해 대칭 이동한 점 */
+export function reflectPoint(p: Point, m: MirrorLine): Point {
+  // P 에서 거울 선 위로 내린 수선의 발 F 를 구한 뒤, P' = 2F − P
+  const t = (p.x - m.gx) * m.dx + (p.y - m.gy) * m.dy;
+  const fx = m.gx + t * m.dx;
+  const fy = m.gy + t * m.dy;
+  return { x: 2 * fx - p.x, y: 2 * fy - p.y };
+}
+
 /** 패널법 결과 */
 export interface PanelResult {
   /** 사용한 받음각 (rad, 물리 받음각) */
   alpha: number;
   panels: Panel[];
+  /**
+   * 그라운드 이펙트용 거울 날개 패널 (없으면 undefined).
+   * 거울 날개의 절점 j 와류 세기는 −γ_j (회전 방향이 반대).
+   */
+  imagePanels?: Panel[];
   /** 절점별 와류 세기 γ (길이 N + 1, 무차원) */
   gamma: number[];
   /** 패널 가운데 점의 표면 접선 속도 (V∞ 대비, 부호 포함) */
@@ -218,9 +243,13 @@ export function solveLinearSystem(A: number[][], b: number[]): number[] {
  * @param coords Selig 순서 좌표 (시위 = 1)
  * @param alpha  물리 받음각 (rad). 자유흐름 방향 = (cos α, sin α)
  */
-export function solvePanelMethod(coords: Point[], alpha: number): PanelResult {
+export function solvePanelMethod(coords: Point[], alpha: number, mirror?: MirrorLine): PanelResult {
   const panels = buildPanels(coords);
   const N = panels.length;
+  // 그라운드 이펙트: 지면에 대칭인 "거울 날개"를 만든다. 거울 날개의 와류는
+  // 진짜 날개와 크기가 같고 회전 방향이 반대(−γ)라서, 지면 위에서 두 날개가
+  // 만드는 수직 속도가 서로 상쇄된다 → 지면을 뚫고 지나는 흐름이 0 = 지면 조건.
+  const imagePanels = mirror ? buildPanels(coords.map((p) => reflectPoint(p, mirror))) : undefined;
   const Vinf = { x: Math.cos(alpha), y: Math.sin(alpha) };
 
   // ── 1단계: 영향계수 행렬 A 만들기 ─────────────────────────────
@@ -234,6 +263,12 @@ export function solvePanelMethod(coords: Point[], alpha: number): PanelResult {
       const inf = linearVortexInfluence(panels[j], pi.mid.x, pi.mid.y, i === j);
       A[i][j] += inf.ua * pi.nx + inf.va * pi.ny; // 패널 j 시작 절점(j)
       A[i][j + 1] += inf.ub * pi.nx + inf.vb * pi.ny; // 패널 j 끝 절점(j+1)
+      if (imagePanels) {
+        // 거울 날개 패널 j (세기 −γ) 의 영향을 빼 준다
+        const im = linearVortexInfluence(imagePanels[j], pi.mid.x, pi.mid.y);
+        A[i][j] -= im.ua * pi.nx + im.va * pi.ny;
+        A[i][j + 1] -= im.ub * pi.nx + im.vb * pi.ny;
+      }
     }
     // 노이만 조건: Σ A·γ + V∞·n = 0  →  Σ A·γ = −V∞·n
     rhs[i] = -(Vinf.x * pi.nx + Vinf.y * pi.ny);
@@ -260,6 +295,11 @@ export function solvePanelMethod(coords: Point[], alpha: number): PanelResult {
       const inf = linearVortexInfluence(panels[j], pi.mid.x, pi.mid.y, i === j);
       u += inf.ua * gamma[j] + inf.ub * gamma[j + 1];
       v += inf.va * gamma[j] + inf.vb * gamma[j + 1];
+      if (imagePanels) {
+        const im = linearVortexInfluence(imagePanels[j], pi.mid.x, pi.mid.y);
+        u -= im.ua * gamma[j] + im.ub * gamma[j + 1];
+        v -= im.va * gamma[j] + im.vb * gamma[j + 1];
+      }
     }
     const vti = u * pi.cos + v * pi.sin;
     vt.push(vti);
@@ -290,7 +330,7 @@ export function solvePanelMethod(coords: Point[], alpha: number): PanelResult {
   }
   const clCirculation = 2 * circulation; // C_L = 2Γ/(V∞ c), V∞ = c = 1
 
-  return { alpha, panels, gamma, vt, cp, cl, clCirculation, cdPressure, cmQuarter: m };
+  return { alpha, panels, imagePanels, gamma, vt, cp, cl, clCirculation, cdPressure, cmQuarter: m };
 }
 
 /**
@@ -300,11 +340,16 @@ export function solvePanelMethod(coords: Point[], alpha: number): PanelResult {
 export function velocityAt(result: PanelResult, px: number, py: number): { u: number; v: number } {
   let u = Math.cos(result.alpha);
   let v = Math.sin(result.alpha);
-  const { panels, gamma } = result;
+  const { panels, gamma, imagePanels } = result;
   for (let j = 0; j < panels.length; j++) {
     const inf = linearVortexInfluence(panels[j], px, py);
     u += inf.ua * gamma[j] + inf.ub * gamma[j + 1];
     v += inf.va * gamma[j] + inf.vb * gamma[j + 1];
+    if (imagePanels) {
+      const im = linearVortexInfluence(imagePanels[j], px, py);
+      u -= im.ua * gamma[j] + im.ub * gamma[j + 1];
+      v -= im.va * gamma[j] + im.vb * gamma[j + 1];
+    }
   }
   return { u, v };
 }

@@ -3,10 +3,104 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="뒤집은 NACA 4412 날개의 받음각에 따른 다운포스·항력 시뮬레이션 (패널법 + NeuralFoil 점성 데이터)" />
     <title>F1 역방향 날개 다운포스 시뮬레이션</title>
   </head>
   <body>
-    <div id="app"></div>
+    <header class="site-header">
+      <div class="wrap">
+        <h1>F1 역방향 날개 다운포스 시뮬레이션</h1>
+        <p class="subtitle">뒤집은 NACA 날개의 받음각에 따른 다운포스·항력 — 베르누이(비점성) 해석과 점성 데이터 비교</p>
+        <nav class="tabs" role="tablist" aria-label="화면 선택">
+          <button role="tab" data-tab="sim" aria-selected="true">시뮬레이션</button>
+          <button role="tab" data-tab="concepts" aria-selected="false">개념 설명</button>
+          <button role="tab" data-tab="print" aria-selected="false">3D 프린팅</button>
+          <button role="tab" data-tab="experiment" aria-selected="false">실험 비교</button>
+          <button role="tab" data-tab="validation" aria-selected="false">검증</button>
+        </nav>
+      </div>
+    </header>
+
+    <main class="wrap">
+      <!-- ───────────── 시뮬레이션 탭 ───────────── -->
+      <section id="tab-sim" class="tab-panel" role="tabpanel">
+        <div class="tour-bar" id="tour-bar" hidden></div>
+        <div class="sim-grid">
+          <div class="sim-main">
+            <div class="card view-card" id="view-card">
+              <div class="view-badges">
+                <span class="badge badge-inviscid" title="압력 색·유선·Cp 는 패널법 결과">압력 색·흐름 = 비점성(이상 유체, 베르누이 가정)</span>
+                <span class="badge" id="badge-ground" hidden>그라운드 이펙트 (비점성)</span>
+              </div>
+              <div class="canvas-wrap"><canvas id="wing-canvas" aria-label="날개 주변 압력과 흐름"></canvas></div>
+              <div class="legend">
+                <span class="legend-label">저압 (빠름)</span>
+                <div class="legend-bar-wrap">
+                  <div class="legend-bar" id="legend-bar"></div>
+                  <div class="legend-ticks" id="legend-ticks"></div>
+                </div>
+                <span class="legend-label">고압 (느림)</span>
+              </div>
+              <p class="view-note" id="view-note"></p>
+            </div>
+
+            <div class="card" id="numbers-card">
+              <h2>숫자 패널</h2>
+              <div id="numbers"></div>
+            </div>
+
+            <div class="card" id="charts-card">
+              <h2>그래프</h2>
+              <div class="charts" id="charts"></div>
+            </div>
+          </div>
+
+          <aside class="sim-side">
+            <div class="card controls" id="controls"></div>
+            <div class="card" id="tour-start-card">
+              <h2>가이드 투어</h2>
+              <p class="muted">발표할 때 단계별로 따라가며 설명하는 모드입니다.</p>
+              <button class="btn primary" id="tour-start">가이드 투어 시작</button>
+            </div>
+            <div class="card limits">
+              <h2>이 시뮬레이션의 한계</h2>
+              <ul>
+                <li><b>비점성 해석</b>(패널법)은 공기의 점성을 무시합니다. 그래서 실속이 없고 항력이 0입니다.</li>
+                <li><b>점성 데이터</b>는 NeuralFoil(신경망 기반 XFoil 근사)로 미리 계산한 2차원 값입니다. 실제 측정값이 아닙니다.</li>
+                <li>모두 <b>2차원</b>(날개 폭 무한) 결과입니다. 실제 날개는 끝에서 공기가 돌아 나가 힘이 더 작습니다.</li>
+                <li>선풍기 바람은 고르지 않고 소용돌이가 섞여 있어 풍동과 다릅니다.</li>
+              </ul>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <!-- ───────────── 개념 설명 탭 ───────────── -->
+      <section id="tab-concepts" class="tab-panel" role="tabpanel" hidden>
+        <div id="concepts"></div>
+      </section>
+
+      <!-- ───────────── 3D 프린팅 탭 ───────────── -->
+      <section id="tab-print" class="tab-panel" role="tabpanel" hidden>
+        <div id="print"></div>
+      </section>
+
+      <!-- ───────────── 실험 비교 탭 ───────────── -->
+      <section id="tab-experiment" class="tab-panel" role="tabpanel" hidden>
+        <div id="experiment"></div>
+      </section>
+
+      <!-- ───────────── 검증 탭 ───────────── -->
+      <section id="tab-validation" class="tab-panel" role="tabpanel" hidden>
+        <div id="validation"></div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="wrap muted">
+        물리 계산 코드: <code>src/physics/</code> · 패널법 설명: <code>docs/physics.md</code> · 점성 데이터: NeuralFoil (<code>tools/generate_polars.py</code>)
+      </div>
+    </footer>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

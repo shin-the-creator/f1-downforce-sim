@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { generateNaca4 } from '../src/physics/naca';
-import { lookupViscous, stallAngle, type PolarSet } from '../src/physics/polar';
+import { lookupViscous, sensitivityAsPolarSet, stallAngle, type PolarSet, type SensitivitySet } from '../src/physics/polar';
 
 // tools/generate_polars.py 가 만든 실제 데이터 파일을 검사한다.
 const polars = JSON.parse(readFileSync(new URL('../public/data/polars.json', import.meta.url), 'utf-8')) as PolarSet & {
@@ -51,5 +51,21 @@ describe('NeuralFoil polar 데이터 파일', () => {
     const s = stallAngle(a, t.cdf);
     expect(s).not.toBeNull();
     expect(s!).toBeGreaterThan(10);
+  });
+});
+
+const sens = JSON.parse(readFileSync(new URL('../public/data/polars_sensitivity.json', import.meta.url), 'utf-8')) as SensitivitySet;
+
+describe('n_crit 민감도 데이터', () => {
+  it('n_crit = 9 결과는 기본 polar 와 같다 (같은 조건이면 같은 값)', () => {
+    const s9 = sensitivityAsPolarSet(sens, 9)!;
+    for (const a of [0, 8, 14]) {
+      expect(lookupViscous(s9, '4412', true, a, 40000)!.cdf).toBeCloseTo(lookupViscous(polars, '4412', true, a, 40000)!.cdf, 5);
+    }
+  });
+  it('조건: n_crit 2·5·9, Re 4만·10만, 데이터 없는 n_crit 는 null', () => {
+    expect(sens.conditions.n_crit).toEqual([2, 5, 9]);
+    expect(sens.conditions.reynolds).toEqual([40000, 100000]);
+    expect(sensitivityAsPolarSet(sens, 7)).toBeNull();
   });
 });

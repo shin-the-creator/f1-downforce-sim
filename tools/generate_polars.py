@@ -61,6 +61,14 @@ OUT = Path(__file__).resolve().parent.parent / "public" / "data" / "polars.json"
 VALIDATION_REYNOLDS = [3_000_000, 6_000_000, 9_000_000]
 OUT_VALIDATION = OUT.parent / "polars_validation.json"
 
+# 민감도 분석용: 천이 기준 n_crit 를 바꿔 본다 (역방향 NACA 4412, 낮은 Re).
+# n_crit 는 "바람이 얼마나 고요한가"를 나타낸다. 9 = 일반 풍동, 값이 작을수록 난류가 강한 바람
+# (경계층이 더 빨리 난류로 바뀜). 선풍기 바람은 난류가 강해 9 보다 작을 가능성이 높지만
+# 정확한 값은 측정하지 않으면 알 수 없으므로 여러 값을 계산해 범위로 보여 준다.
+SENSITIVITY_REYNOLDS = [40_000, 100_000]
+SENSITIVITY_NCRIT = [2.0, 5.0, 9.0]
+OUT_SENSITIVITY = OUT.parent / "polars_sensitivity.json"
+
 
 # ── 형상: src/physics/naca.ts 와 같은 식 ──────────────────────────
 def naca4(code: str, inverted: bool, n: int = PANELS_PER_SIDE) -> np.ndarray:
@@ -89,12 +97,12 @@ def naca4(code: str, inverted: bool, n: int = PANELS_PER_SIDE) -> np.ndarray:
     return np.array(coords)
 
 
-def run(coords: np.ndarray, alpha_phys: np.ndarray, re: float) -> dict:
+def run(coords: np.ndarray, alpha_phys: np.ndarray, re: float, n_crit: float = N_CRIT) -> dict:
     return nf.get_aero_from_coordinates(
         coordinates=coords,
         alpha=alpha_phys,
         Re=re,
-        n_crit=N_CRIT,
+        n_crit=n_crit,
         xtr_upper=XTR,
         xtr_lower=XTR,
         model_size=MODEL_SIZE,
@@ -192,6 +200,35 @@ def main() -> int:
     }
     OUT_VALIDATION.write_text(json.dumps(vout, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     print(f"저장: {OUT_VALIDATION} ({OUT_VALIDATION.stat().st_size / 1024:.1f} KB)")
+
+    # ── n_crit 민감도 (역방향 NACA 4412) ──
+    coords = naca4("4412", True)
+    sens = {}
+    for nc in SENSITIVITY_NCRIT:
+        sens[f"{nc:g}"] = {}
+        for re in SENSITIVITY_REYNOLDS:
+            r = run(coords, -alpha_ui, re, n_crit=nc)
+            sens[f"{nc:g}"][str(re)] = {
+                "cdf": [round(float(v), 5) for v in -np.asarray(r["CL"], dtype=float)],
+                "cd": [round(float(v), 6) for v in np.asarray(r["CD"], dtype=float)],
+                "cm": [round(float(v), 5) for v in np.asarray(r["CM"], dtype=float)],
+                "confidence": [round(float(v), 4) for v in np.asarray(r["analysis_confidence"], dtype=float)],
+            }
+            k8 = ALPHAS.index(8.0)
+            print(f"  민감도 n_crit={nc:g} Re={re}: 8° cdf={sens[f"{nc:g}"][str(re)]['cdf'][k8]:.3f} cd={sens[f"{nc:g}"][str(re)]['cd'][k8]:.4f}")
+    sout = {
+        "generator": out["generator"],
+        "conditions": {
+            "alpha_deg": ALPHAS,
+            "reynolds": SENSITIVITY_REYNOLDS,
+            "n_crit": SENSITIVITY_NCRIT,
+            "airfoil": "NACA 4412 역방향",
+            "note": "n_crit 9 = 일반 풍동, 작을수록 난류가 강한 바람. 선풍기 바람의 실제 n_crit 는 측정하지 않았음.",
+        },
+        "data": sens,
+    }
+    OUT_SENSITIVITY.write_text(json.dumps(sout, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    print(f"저장: {OUT_SENSITIVITY} ({OUT_SENSITIVITY.stat().st_size / 1024:.1f} KB)")
     return 0
 
 

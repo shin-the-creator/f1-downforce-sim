@@ -148,3 +148,26 @@ export function stallAngle(alphas: number[], cdf: number[], tol = 0.005): number
   }
   return null;
 }
+
+/**
+ * n_crit 민감도 데이터 (public/data/polars_sensitivity.json)
+ * n_crit 는 경계층이 난류로 바뀌는 기준값이다. 9 = 일반 풍동처럼 고요한 바람,
+ * 값이 작을수록 난류가 강한 바람(선풍기 등)에 해당한다.
+ */
+export interface SensitivitySet {
+  generator: Record<string, string>;
+  conditions: { alpha_deg: number[]; reynolds: number[]; n_crit: number[]; [k: string]: unknown };
+  /** data[String(n_crit)][String(Re)] */
+  data: Record<string, Record<string, PolarTable>>;
+}
+
+/** 민감도 데이터에서 n_crit 하나를 일반 PolarSet 모양으로 꺼낸다 (lookupViscous 재사용용) */
+export function sensitivityAsPolarSet(s: SensitivitySet, nCrit: number): PolarSet | null {
+  const tables = s.data[String(nCrit)];
+  if (!tables) return null;
+  return {
+    generator: s.generator,
+    conditions: { alpha_deg: s.conditions.alpha_deg, reynolds: s.conditions.reynolds },
+    airfoils: { '4412': { inverted: tables, upright: {} } },
+  };
+}

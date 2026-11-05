@@ -27,3 +27,6 @@ python -m venv .venv
 
 **주의:** NeuralFoil 은 XFoil 을 흉내 낸 신경망이므로 결과는 "계산값"이다. 실험값이 아니다.
 `confidence` 가 낮은 점(예: Re 100,000, 17° 이상)은 화면에서 경고로 표시한다.
+
+**민감도:** 같은 실행에서 `polars_sensitivity.json` (역방향 NACA 4412, Re 4만·10만, n_crit 2·5·9) 과
+`polars_validation.json` (정방향 NACA 4412, Re 3·6·9 백만) 도 만든다. n_crit = 9 민감도 값은 기본 표와 같아야 하며 테스트로 확인한다.

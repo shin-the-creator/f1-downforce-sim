@@ -16,7 +16,7 @@ import {
   type ExperimentSetup,
 } from '../physics/experiment';
 import { reynoldsNumber } from '../physics/forces';
-import { lookupViscous, viscousCurve } from '../physics/polar';
+import { chooseReynolds, lookupViscous, sensitivityAsPolarSet, viscousCurve, type SensitivitySet } from '../physics/polar';
 import { downforceCoefficient } from '../physics/wing';
 import { getInviscid, INVISCID_SWEEP_ALPHAS, inviscidCurve, SWEEP_ALPHAS } from '../sim';
 import { PRESETS } from '../state';
@@ -66,6 +66,7 @@ interface Saved {
   setup: ExperimentSetup;
   rows: ExperimentRow[];
   show3d: boolean;
+  showSens: boolean;
 }
 
 function defaultData(): Saved {
@@ -75,6 +76,7 @@ function defaultData(): Saved {
     setup: { speed: m.speed, wingMassG: 0, chordMm: m.chordMm, spanMm: m.spanMm, rho: 1.2 },
     rows: Array.from({ length: 11 }, (_, k) => ({ alphaDeg: k * 2, scaleG: [null, null, null], pendulumDeg: null })),
     show3d: false,
+    showSens: false,
   };
 }
 
@@ -127,6 +129,8 @@ export function mountExperimentTab(root: HTMLElement, ctx: AppContext): void {
     <div class="card">
       <h2>시뮬레이션과 비교</h2>
       <label style="display:flex;gap:6px;align-items:center;font-size:0.9rem"><input type="checkbox" id="ex-3d" /> 참고: 유한 날개(3D) 근사 곡선도 표시 (프란틀 양력선 이론, AR = 폭/시위)</label>
+      <label style="display:flex;gap:6px;align-items:center;font-size:0.9rem;margin-top:4px"><input type="checkbox" id="ex-sens" /> 참고: 바람의 난류 정도(n_crit 2·5·9) 민감도 곡선 표시 — NACA 4412 역방향만</label>
+      <p class="muted" id="ex-sens-note" style="margin:4px 0 0" hidden></p>
       <div class="charts" style="margin-top:10px">
         <div class="chart-box"><h3>C<sub>L</sub> (다운포스 계수) – 받음각</h3><div class="chart-canvas-wrap"><canvas id="ex-chart-cl"></canvas></div></div>
         <div class="chart-box"><h3>C<sub>D</sub> – 받음각</h3><div class="chart-canvas-wrap"><canvas id="ex-chart-cd"></canvas></div></div>
@@ -140,7 +144,7 @@ export function mountExperimentTab(root: HTMLElement, ctx: AppContext): void {
       <h2>차이가 나는 원인 점검표</h2>
       <ul style="margin:0;padding-left:18px;font-size:0.92rem">
         <li><b>3차원 효과</b>: 시뮬레이션은 폭이 무한한 2차원 날개입니다. 폭/시위 비(AR)가 <span id="ex-ar"></span> 인 실제 날개는 날개 끝 와류 때문에 다운포스가 줄고 항력(유도항력)이 늘어납니다. 끝판을 달면 줄어듭니다.</li>
-        <li><b>레이놀즈 수와 난류</b>: Re ≈ <span id="ex-re2"></span> 는 층류 박리가 심한 구간이라, 바람의 난류 정도에 따라 결과가 크게 바뀝니다. 선풍기 바람은 소용돌이와 회전 성분이 많아 NeuralFoil 의 가정(n_crit = 9, 고른 흐름)과 다릅니다.</li>
+        <li><b>레이놀즈 수와 난류</b>: Re ≈ <span id="ex-re2"></span> 는 층류 박리가 심한 구간이라, 바람의 난류 정도에 따라 결과가 크게 바뀝니다. 선풍기 바람은 소용돌이와 회전 성분이 많아 NeuralFoil 의 기본 가정(n_crit = 9, 고른 흐름)과 다릅니다. 위 그래프의 "n_crit 민감도" 곡선으로 그 영향 범위를 확인할 수 있습니다.</li>
         <li><b>바람의 고르기</b>: 선풍기 중심과 가장자리의 풍속이 다릅니다. 풍속계 측정 위치와 날개 위치가 다르면 동압(v²) 오차가 커집니다 (풍속 5 % 오차 → 힘 약 10 % 오차).</li>
         <li><b>형상 차이</b>: 출력용 뒤끝 두께 보정, 3D 프린팅 층 무늬(표면 거칠기), 출력 수축·휨.</li>
         <li><b>각도 오차</b>: 받음각 1° 오차는 C_L 약 0.1 차이를 만듭니다 (기울기 ≈ 0.1 /°).</li>
@@ -169,6 +173,7 @@ export function mountExperimentTab(root: HTMLElement, ctx: AppContext): void {
   function renderInputs(): void {
     for (const [id, key] of setupFields) q<HTMLInputElement>(id).value = String(data.setup[key]);
     q<HTMLInputElement>('ex-3d').checked = data.show3d;
+    q<HTMLInputElement>('ex-sens').checked = data.showSens;
     const cell = (v: number | null, r: number, k: string) =>
       `<input type="number" step="any" inputmode="decimal" data-r="${r}" data-k="${k}" value="${v ?? ''}" />`;
     q('ex-input').innerHTML = `
@@ -219,6 +224,28 @@ export function mountExperimentTab(root: HTMLElement, ctx: AppContext): void {
         const cl3 = vc.map((v) => finiteWingCl(v!.cdf, ar));
         clSets.push({ label: `점성 + 3D 근사 (AR ${ar.toFixed(1)})`, data: SWEEP_ALPHAS.map((a, k) => ({ x: a, y: cl3[k] })), borderColor: '#9333ea', backgroundColor: '#9333ea', borderDash: [6, 3] });
         cdSets.push({ label: `점성 + 유도항력 (AR ${ar.toFixed(1)})`, data: SWEEP_ALPHAS.map((a, k) => ({ x: a, y: vc[k]!.cd + inducedDrag(cl3[k], ar) })), borderColor: '#9333ea', backgroundColor: '#9333ea', borderDash: [6, 3] });
+      }
+    }
+    // n_crit 민감도 (선풍기 바람처럼 난류가 강하면 n_crit 가 작다)
+    const sensNote = q('ex-sens-note');
+    sensNote.hidden = !data.showSens;
+    if (data.showSens) {
+      if (!sens) sensNote.textContent = '민감도 데이터를 불러오지 못했습니다.';
+      else if (st.code !== '4412' || !st.inverted) sensNote.textContent = '민감도 데이터는 NACA 4412 역방향만 있습니다. 시뮬레이션 탭에서 날개를 바꾸세요.';
+      else {
+        const pick = chooseReynolds(sens.conditions.reynolds, re);
+        const greys: Record<number, string> = { 2: '#0d9488', 5: '#65a30d' };
+        for (const nc of [2, 5]) {
+          const set = sensitivityAsPolarSet(sens, nc);
+          if (!set) continue;
+          const curve = SWEEP_ALPHAS.map((a) => lookupViscous(set, '4412', true, a, re)!);
+          const base = { borderColor: greys[nc], backgroundColor: greys[nc], borderDash: [4, 3], borderWidth: 1.8 };
+          clSets.push({ ...base, label: `점성 n_crit ${nc}`, data: SWEEP_ALPHAS.map((a, k) => ({ x: a, y: curve[k].cdf })) });
+          cdSets.push({ ...base, label: `점성 n_crit ${nc}`, data: SWEEP_ALPHAS.map((a, k) => ({ x: a, y: curve[k].cd })) });
+        }
+        sensNote.textContent =
+          `빨간 실선이 n_crit 9 (일반 풍동처럼 고요한 바람), 점선이 n_crit 5·2 (난류가 강한 바람) 입니다. 선풍기 바람의 실제 n_crit 는 측정하지 않아 알 수 없으므로, 실험 점이 어느 곡선 근처에 있는지로 바람의 난류 정도를 추정해 볼 수 있습니다.` +
+          (pick.match === 'clamped' ? ` (현재 Re 는 민감도 데이터 범위 4만~10만 밖이라 가장 가까운 Re ${pick.res[0].toLocaleString('ko-KR')} 값을 썼습니다.)` : pick.match === 'interpolated' ? ' (Re 보간값)' : '');
       }
     }
     if (results.length) {
@@ -324,11 +351,25 @@ export function mountExperimentTab(root: HTMLElement, ctx: AppContext): void {
     }
     (e.target as HTMLInputElement).value = '';
   });
+  q<HTMLInputElement>('ex-sens').addEventListener('change', (e) => {
+    data.showSens = (e.target as HTMLInputElement).checked;
+    compute();
+    save();
+  });
   q<HTMLInputElement>('ex-3d').addEventListener('change', (e) => {
     data.show3d = (e.target as HTMLInputElement).checked;
     compute();
     save();
   });
+
+  let sens: SensitivitySet | null = null;
+  fetch(`${import.meta.env.BASE_URL}data/polars_sensitivity.json`)
+    .then((r) => (r.ok ? r.json() : Promise.reject()))
+    .then((j: SensitivitySet) => {
+      sens = j;
+      compute();
+    })
+    .catch(() => compute());
 
   renderInputs();
   status();

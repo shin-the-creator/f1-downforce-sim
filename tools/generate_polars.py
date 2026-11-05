@@ -56,6 +56,11 @@ XTR = 1.0  # 강제 천이 없음 (자유 천이)
 
 OUT = Path(__file__).resolve().parent.parent / "public" / "data" / "polars.json"
 
+# 검증 탭용: 교과서 실험 데이터(예: Abbott & von Doenhoff)가 흔히 쓰는 높은 Re 에서
+# 정방향 NACA 4412 의 NeuralFoil 계산값. (실험값이 아니라 비교 대상이 될 "계산값")
+VALIDATION_REYNOLDS = [3_000_000, 6_000_000, 9_000_000]
+OUT_VALIDATION = OUT.parent / "polars_validation.json"
+
 
 # ── 형상: src/physics/naca.ts 와 같은 식 ──────────────────────────
 def naca4(code: str, inverted: bool, n: int = PANELS_PER_SIDE) -> np.ndarray:
@@ -168,6 +173,25 @@ def main() -> int:
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     print(f"저장: {OUT} ({OUT.stat().st_size / 1024:.1f} KB)")
+
+    # ── 검증용 높은 Re polar (정방향 NACA 4412) ──
+    coords = naca4("4412", False)
+    vdata = {}
+    for re in VALIDATION_REYNOLDS:
+        r = run(coords, alpha_ui, re)
+        vdata[str(re)] = {
+            "cdf": [round(float(v), 5) for v in -np.asarray(r["CL"], dtype=float)],
+            "cd": [round(float(v), 6) for v in np.asarray(r["CD"], dtype=float)],
+            "cm": [round(float(v), 5) for v in np.asarray(r["CM"], dtype=float)],
+            "confidence": [round(float(v), 4) for v in np.asarray(r["analysis_confidence"], dtype=float)],
+        }
+    vout = {
+        "generator": out["generator"],
+        "conditions": {**out["conditions"], "reynolds": VALIDATION_REYNOLDS},
+        "airfoils": {"4412": {"upright": vdata, "inverted": {}}},
+    }
+    OUT_VALIDATION.write_text(json.dumps(vout, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    print(f"저장: {OUT_VALIDATION} ({OUT_VALIDATION.stat().st_size / 1024:.1f} KB)")
     return 0
 
 

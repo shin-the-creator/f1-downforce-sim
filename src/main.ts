@@ -16,6 +16,7 @@ import { mountConcepts } from './ui/concepts';
 import { mountTour } from './ui/tour';
 import { mountPrintTab } from './ui/printTab';
 import { mountExperimentTab } from './ui/experimentTab';
+import { mountValidationTab } from './ui/validationTab';
 
 const store = new Store(initialState);
 let polars: PolarSet | null = null;
@@ -35,7 +36,7 @@ document.getElementById('legend-bar')!.style.background = cpGradientCss();
 document.getElementById('legend-ticks')!.innerHTML = [-3, -2, -1, 0, 1]
   .map((cp) => {
     const pos = ((cp - CP_MIN) / (CP_MAX - CP_MIN)) * 100;
-    return `<span style="left:${pos}%">${cp === -3 ? 'Cp ≤ −3' : cp > 0 ? `+${cp}` : cp === 0 ? '0' : `−${-cp}`}</span>`;
+    return `<span style="left:${pos}%">${cp === -3 ? '≤ −3' : cp > 0 ? `+${cp}` : cp === 0 ? '0' : `−${-cp}`}</span>`;
   })
   .join('');
 
@@ -85,6 +86,7 @@ mountConcepts(document.getElementById('concepts')!, ctx);
 mountTour(ctx);
 mountPrintTab(document.getElementById('print')!, ctx);
 mountExperimentTab(document.getElementById('experiment')!, ctx);
+mountValidationTab(document.getElementById('validation')!, ctx);
 
 // ── 점성 polar 데이터 불러오기 (없어도 비점성 해석은 동작) ──
 fetch(`${import.meta.env.BASE_URL}data/polars.json`)

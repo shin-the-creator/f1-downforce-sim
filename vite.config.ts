@@ -4,6 +4,10 @@ import { defineConfig } from 'vitest/config';
 // 빌드 결과의 기본 경로(base)를 저장소 이름으로 맞춘다.
 export default defineConfig({
   base: '/f1-downforce-sim/',
+  build: {
+    // Chart.js + KaTeX 포함 약 520 kB (gzip 170 kB) — 이 앱에는 충분히 작다
+    chunkSizeWarningLimit: 700,
+  },
   test: {
     include: ['tests/**/*.test.ts'],
   },

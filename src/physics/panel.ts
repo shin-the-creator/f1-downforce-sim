@@ -310,7 +310,7 @@ export function solvePanelMethod(coords: Point[], alpha: number, mirror?: Mirror
   // 압력은 표면을 안쪽으로(−n 방향) 민다. 패널마다 힘 = −Cp · n · 길이 를 더한다.
   let fx = 0;
   let fy = 0;
-  let m = 0; // 1/4 시위점(0.25, 0) 기준 모멘트, 반시계(기수 들림) +
+  let m = 0; // 1/4 시위점(0.25, 0) 기준 모멘트. 기수 들림(시계 방향 회전) 이 + 이므로 반시계 모멘트에 − 를 붙인다
   for (let i = 0; i < N; i++) {
     const pi = panels[i];
     const dfx = -cp[i] * pi.nx * pi.length;

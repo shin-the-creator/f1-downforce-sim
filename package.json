@@ -11,12 +11,14 @@
     "test:watch": "vitest"
   },
   "devDependencies": {
+    "@types/katex": "^0.16.8",
     "@types/node": "^22.20.5",
     "typescript": "^5.9.3",
     "vite": "^6.4.5",
     "vitest": "^3.2.7"
   },
   "dependencies": {
-    "chart.js": "^4.6.1"
+    "chart.js": "^4.6.1",
+    "katex": "^0.16.47"
   }
 }

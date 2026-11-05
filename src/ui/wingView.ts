@@ -56,6 +56,7 @@ export class WingView {
   private resize(): void {
     const parent = this.canvas.parentElement!;
     const w = parent.clientWidth;
+    if (w < 10) return; // 탭이 숨겨져 크기가 0 이면 다시 보일 때 그린다
     const h = Math.round(Math.max(240, Math.min(w * (w < 600 ? 0.75 : 0.52), 560)));
     this.dpr = Math.min(window.devicePixelRatio || 1, 2);
     this.W = w;
@@ -122,7 +123,7 @@ export class WingView {
 
   private buildField(fine: boolean): void {
     const s = this.snap;
-    if (!s) return;
+    if (!s || this.W < 10) return;
     const nx = fine ? Math.min(160, Math.round(this.W / 5)) : Math.min(70, Math.round(this.W / 10));
     const ny = Math.max(10, Math.round((nx * this.H) / this.W));
     this.field = computeFlowField(s.inviscid, s.airfoil.coords, this.box, nx, ny);
@@ -284,7 +285,7 @@ export class WingView {
     this.rafId = requestAnimationFrame(this.loop);
     const dt = Math.min(0.05, (t - this.lastT) / 1000 || 0);
     this.lastT = t;
-    if (!this.visible || !this.snap || !this.field) return;
+    if (!this.visible || !this.snap || !this.field || this.bg.width === 0) return;
     this.draw(dt);
   }
 

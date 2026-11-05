@@ -11,6 +11,9 @@ import { Charts } from './ui/charts';
 import { cpGradientCss, CP_MAX, CP_MIN } from './ui/colors';
 import type { PolarSet } from './physics/polar';
 import { minimumClearance } from './physics/ground';
+import type { AppContext } from './ui/context';
+import { mountConcepts } from './ui/concepts';
+import { mountTour } from './ui/tour';
 
 const store = new Store(initialState);
 let polars: PolarSet | null = null;
@@ -57,10 +60,24 @@ function refresh(): void {
     warn.hidden = clr > 0.02;
     warn.textContent = clr <= 0 ? '날개가 지면에 닿았습니다. h/c 를 키우세요.' : '날개가 지면에 매우 가깝습니다 (계산 신뢰도 낮음).';
   }
+  for (const cb of refreshListeners) cb(snapshot);
 }
 
+const refreshListeners: ((s: Snapshot) => void)[] = [];
 store.subscribe(() => refresh());
 refresh();
+
+const ctx: AppContext = {
+  store,
+  view,
+  charts,
+  snapshot: () => snapshot,
+  polars: () => polars,
+  showTab,
+  onRefresh: (cb) => refreshListeners.push(cb),
+};
+mountConcepts(document.getElementById('concepts')!, ctx);
+mountTour(ctx);
 
 // ── 점성 polar 데이터 불러오기 (없어도 비점성 해석은 동작) ──
 fetch(`${import.meta.env.BASE_URL}data/polars.json`)
@@ -74,4 +91,4 @@ fetch(`${import.meta.env.BASE_URL}data/polars.json`)
     refresh();
   });
 
-export { store, charts, view };
+export { store, charts, view, ctx };

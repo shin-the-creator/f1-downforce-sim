@@ -12,16 +12,19 @@
  *  4단계 — 각 점에서 세 값(한계, 전진, 후진) 중 가장 작은 속도를 택한다.
  *  5단계 — 시간: 구간마다 평균 속도로 dt = 2 ds / (v[i] + v[i+1]) 를 더한다.
  *
- * ■ 가속:  m a = F_엔진 − F_항력 − F_구름
+ * ■ 고저차: 오르막이면 중력의 진행 방향 성분 m g sinθ 가 차를 뒤로 당긴다 (내리막이면 앞으로 민다).
+ *          타이어를 누르는 힘 N = m g cosθ + F_down + m v² κ_v (κ_v: 위아래 곡률, 골짜기 +)
+ * ■ 가속:  m a = F_엔진 − F_항력 − F_구름 − m g sinθ
  *          F_엔진 = min( P / v , 타이어가 낼 수 있는 세로 힘 )
  *   P / v : 출력이 일정하면 느릴 때 힘이 크고 빠를 때 힘이 작다 (일률 P = F v).
- * ■ 제동:  m a = 타이어가 낼 수 있는 세로 힘 + F_항력 + F_구름   (항력도 감속을 돕는다)
+ * ■ 제동:  m a = 타이어가 낼 수 있는 세로 힘 + F_항력 + F_구름 + m g sinθ   (항력도 감속을 돕는다)
  * ■ 마찰원: 코너를 돌며 가속·제동하면 가로 힘(구심력)과 세로 힘이 마찰을 나눠 쓴다.
  *          √(가로² + 세로²) ≤ μ N   →   세로 최대 = √( (μN)² − (m v² κ)² )
  *          N = m g + F_down (다운포스가 타이어를 눌러 주는 만큼 마찰 한계가 커진다)
  *
  * 가정·한계: 차는 한 점, 타이어 마찰계수 일정, 엔진은 항상 최대 출력(배터리 한도 무시),
- * 연료·타이어 마모 무시, 기어 변속·운전자 반응 시간 없음, 노면 경사 없음.
+ * 연료·타이어 마모 무시, 기어 변속·운전자 반응 시간 없음, 노면의 옆 기울기(뱅크) 없음.
+ * 거리 s 는 수평 거리다 (경사 10 % 일 때 실제 경사면 길이와 0.5 % 차이, 무시).
  */
 
 import { cornerSpeed, topSpeed } from './corner';
@@ -79,10 +82,22 @@ export function simulateLap(track: Track, car: CarParams, env: Environment, aero
   const { mass: m, power: P, crr } = car;
   const { rho, g } = env;
 
+  // 고저차 (없으면 평평): 경사 dz/ds → sinθ, cosθ, 위아래 곡률 κ_v
+  const slope = track.slope;
+  const sinT = (i: number) => (slope ? slope[i] / Math.sqrt(1 + slope[i] * slope[i]) : 0);
+  const cosT = (i: number) => (slope ? 1 / Math.sqrt(1 + slope[i] * slope[i]) : 1);
+  const kV = (i: number) => (track.kappaV ? track.kappaV[i] : 0);
+
   // 점 i 의 공기력·저항 계산 도우미
   const down = (i: number, v: number) => 0.5 * rho * v * v * at(aero.cls, i);
   const dragF = (i: number, v: number) => 0.5 * rho * v * v * at(aero.cds, i);
-  const normal = (i: number, v: number) => m * g + down(i, v);
+  /**
+   * 타이어를 누르는 힘 N = (중력의 노면 수직 성분) + 다운포스 + (위아래 원운동 효과)
+   *   = m g cosθ + ½ρv²C_L·S + m v² κ_v      (언덕 꼭대기에서 차가 뜨면 0)
+   */
+  const normal = (i: number, v: number) => Math.max(0, m * g * cosT(i) + down(i, v) + m * v * v * kV(i));
+  /** 경사면에서 중력의 진행 방향 성분 (오르막이면 +, 차를 뒤로 당김) */
+  const gravityAlong = (i: number) => m * g * sinT(i);
   /** 마찰원에서 남는 세로 방향 힘 (N) */
   const longGrip = (i: number, v: number) => {
     const total = at(aero.mu, i) * normal(i, v);
@@ -95,9 +110,10 @@ export function simulateLap(track: Track, car: CarParams, env: Environment, aero
   const vTop: number[] = new Array(N);
   let topMin = Infinity;
   for (let i = 0; i < N; i++) {
-    vTop[i] = topSpeed(P, at(aero.cds, i), at(aero.cls, i), crr, m, rho, g);
-    topMin = Math.min(topMin, vTop[i]);
-    const vc = cornerSpeed(track.kappa[i], at(aero.mu, i), m, at(aero.cls, i), rho, g);
+    vTop[i] = topSpeed(P, at(aero.cds, i), at(aero.cls, i), crr, m, rho, g, sinT(i), cosT(i));
+    // 보고용 "직선 최고 속도"는 평평한 길 기준
+    topMin = Math.min(topMin, topSpeed(P, at(aero.cds, i), at(aero.cls, i), crr, m, rho, g));
+    const vc = cornerSpeed(track.kappa[i], at(aero.mu, i), m, at(aero.cls, i), rho, g, cosT(i), kV(i));
     vLimit[i] = Math.min(vc, vTop[i]);
   }
 
@@ -105,10 +121,10 @@ export function simulateLap(track: Track, car: CarParams, env: Environment, aero
   /** 점 i 에서 속도 v 로 최대 가속할 때의 가속도 */
   const accel = (i: number, v: number) => {
     const engine = Math.min(P / Math.max(v, 0.5), longGrip(i, v)); // 출발 직후 P/v 가 무한대가 되지 않게
-    return (engine - dragF(i, v) - crr * normal(i, v)) / m;
+    return (engine - dragF(i, v) - crr * normal(i, v) - gravityAlong(i)) / m;
   };
-  /** 점 i 에서 속도 v 로 최대 제동할 때의 감속도 (양수) */
-  const decel = (i: number, v: number) => (longGrip(i, v) + dragF(i, v) + crr * normal(i, v)) / m;
+  /** 점 i 에서 속도 v 로 최대 제동할 때의 감속도 (양수). 오르막이면 중력도 제동을 돕는다 */
+  const decel = (i: number, v: number) => (longGrip(i, v) + dragF(i, v) + crr * normal(i, v) + gravityAlong(i)) / m;
 
   /**
    * 한 구간(ds) 진행 후 속도 — Heun 방법(사다리꼴 규칙, 2차 정확도).

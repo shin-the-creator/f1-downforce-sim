@@ -36,3 +36,20 @@
 - 가장 급한 코너 반지름 약 8.5 m (로우스 헤어핀)
 
 한계: 고저차 없음 (실제 모나코는 생트 데보트 → 카지노 오르막 등 고저차가 큼), 트랙 폭 일정(가정), 첫 점 = 출발선 위치 확인 안 됨.
+
+## 고도(고저차) 데이터 — `*_elevation.csv`, `*_z.csv`, `*_terrain.csv`
+
+| 파일 | 내용 | 만드는 도구 |
+|---|---|---|
+| `monza_georef.json` | TUM 몬차 좌표 → 위도·경도 변환값 (bacinger 몬차 GeoJSON 과 겹쳐 맞춤, 평균 오차 1.1 m) | `tools/georef_monza.py` |
+| `source/monza_bacinger_it-1922.geojson` | 위치 맞추기용 몬차 중심선 (bacinger/f1-circuits, MIT) | (원본 그대로) |
+| `monza_elevation.csv`, `monaco_elevation.csv` | 중심선 점마다 원본 고도: EU-DEM 25 m, SRTM 30 m | `tools/fetch_elevation.py` |
+| `monza_z.csv`, `monaco_z.csv` | **물리 계산과 3D 가 함께 쓰는** 다듬은 고도 | `tools/process_elevation.py` |
+| `monza_terrain.csv`, `monaco_terrain.csv` | 서킷 주변 지형 격자 (3D 배경용, 물리 계산에는 안 씀) | `tools/fetch_terrain.py` |
+
+- 고도 출처: **Open Topo Data** 공개 API (https://www.opentopodata.org) 의 `eudem25m` (EU-DEM v1.1, Copernicus) 와 `srtm30m` (NASA SRTM).
+- 다듬기: EU-DEM 을 쓰고 빈 칸(바다로 분류된 곳)만 SRTM 으로 채움 → 서킷을 따라 150 m 이동 평균.
+- **가정 (모나코 터널):** 점 118 ~ 250 (포르티에 → 터널 → 누벨 시케인 해안 구간) 은 지형 데이터가 터널 위 건물·언덕
+  높이(18 ~ 28 m)를 잡아서, 입구(약 9 m)와 출구(약 6 m) 고도를 **직선으로 이은 값**을 쓴다. 실제 터널 도로 높이는 출처 없음.
+- 결과: 몬차 고저차 17.4 m (경사 −5.8 % ~ +5.4 %), 모나코 고저차 51.5 m (경사 −17.0 % ~ +13.2 %).
+- 한계: 지형 "표면" 고도라 나무·건물이 섞일 수 있고, 25 m 격자보다 작은 굴곡은 없다. 경사 값은 공식 자료와 비교하지 못했다.

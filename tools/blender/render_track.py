@@ -27,11 +27,17 @@ if __name__ == "__main__":
     span = max(max(xs) - min(xs), (max(ys) - min(ys)) * 1280 / 960) * 1.08
     camera((cx, cy, 3000), (cx, cy + 0.01, 0), ortho=span)
     render(IMG / "track_overview.jpg")
+    bpy.context.scene.render.resolution_y = 720
 
     # 첫 시케인 (데이터 기준 약 900 m 지점 = 점 180 근처) 확대
     x, y = raw[184][0], raw[184][1]
     camera((x, y, 400), (x, y + 0.01, 0), ortho=160)
     render(IMG / "track_chicane1.jpg")
+
+    # 항공 시점 (고저차 확인): 남동쪽 위에서 비스듬히
+    zc = sum(p[4] for p in raw) / len(raw)
+    camera((cx + 1400, cy - 2200, zc + 1300), (cx, cy, zc), lens=35)
+    render(IMG / "track_monza_aerial.jpg")
 
     # 메인 직선·출발선 주변 (관중석 위치 확인)
     xm, ym = raw[60][0], raw[60][1]
@@ -43,12 +49,13 @@ if __name__ == "__main__":
     car = bpy.data.objects["Car"]
     (x0, y0, *_), (x1, y1, *_) = raw[3], raw[4]
     heading = math.atan2(y1 - y0, x1 - x0)
-    car.location = (x0, y0, 0)
+    z0 = raw[3][4]  # 그 지점의 노면 고도
+    car.location = (x0, y0, z0)
     car.rotation_mode = "XYZ"
     car.rotation_euler = (0, 0, heading)
     bpy.context.scene.render.resolution_y = 720
-    back = (x0 - 9 * math.cos(heading) + 4 * math.sin(heading), y0 - 9 * math.sin(heading) - 4 * math.cos(heading), 2.6)
-    camera(back, (x0, y0, 0.4), lens=32)
+    back = (x0 - 9 * math.cos(heading) + 4 * math.sin(heading), y0 - 9 * math.sin(heading) - 4 * math.cos(heading), z0 + 2.6)
+    camera(back, (x0, y0, z0 + 0.4), lens=32)
     render(IMG / "track_car_start.jpg")
 
     # 모나코 전체 모습과 로우스 헤어핀 근처
@@ -61,14 +68,20 @@ if __name__ == "__main__":
     span = max(max(xs) - min(xs), (max(ys) - min(ys)) * 1280 / 960) * 1.08
     camera((cx, cy, 3000), (cx, cy + 0.01, 0), ortho=span)
     render(IMG / "track_monaco_overview.jpg")
+    zc = sum(p[4] for p in raw) / len(raw)
+    camera((cx + 650, cy - 900, zc + 450), (cx, cy, zc), lens=35)
+    bpy.context.scene.render.resolution_y = 720
+    render(IMG / "track_monaco_aerial.jpg")
+    bpy.context.scene.render.resolution_y = 960
     bpy.ops.import_scene.gltf(filepath=str(ROOT / "public" / "models" / "car.glb"))
     car = bpy.data.objects["Car"]
     (x0, y0, *_), (x1, y1, *_) = raw[3], raw[4]
     heading = math.atan2(y1 - y0, x1 - x0)
-    car.location = (x0, y0, 0)
+    z0 = raw[3][4]
+    car.location = (x0, y0, z0)
     car.rotation_mode = "XYZ"  # glTF 로 불러온 물체는 쿼터니언 모드라 이걸 바꿔야 rotation_euler 가 적용됨
     car.rotation_euler = (0, 0, heading)
     bpy.context.scene.render.resolution_y = 720
-    camera((x0 - 9 * math.cos(heading) + 4 * math.sin(heading), y0 - 9 * math.sin(heading) - 4 * math.cos(heading), 2.6), (x0, y0, 0.4), lens=32)
+    camera((x0 - 9 * math.cos(heading) + 4 * math.sin(heading), y0 - 9 * math.sin(heading) - 4 * math.cos(heading), z0 + 2.6), (x0, y0, z0 + 0.4), lens=32)
     render(IMG / "track_monaco_car.jpg")
     finish()

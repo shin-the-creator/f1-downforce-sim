@@ -22,6 +22,8 @@ export interface CenterlinePoint {
   wRight: number;
   /** 진행 방향 왼쪽 트랙 폭 (m) */
   wLeft: number;
+  /** 고도 (m, 해수면 기준). 없으면 평평한 서킷 */
+  z?: number;
 }
 
 export interface Track {
@@ -38,6 +40,15 @@ export interface Track {
   y: number[];
   /** 부호 있는 곡률 (1/m) */
   kappa: number[];
+  /**
+   * 고저차 (없으면 평평한 서킷)
+   *   z      : 고도 (m)
+   *   slope  : 경사 dz/ds (오르막 +, 0.05 = 5 % 오르막)
+   *   kappaV : 위아래 방향 곡률 d²z/ds² (1/m). 골짜기(움푹한 곳) +, 언덕 꼭대기 −
+   */
+  z?: number[];
+  slope?: number[];
+  kappaV?: number[];
   /** 섹터 2, 3 이 시작되는 거리 (m) */
   sectorStarts: [number, number];
   /** 3D 표시용 원래 중심선 (없을 수 있음) */
@@ -60,6 +71,23 @@ export function parseCenterlineCsv(text: string): CenterlinePoint[] {
   });
   if (pts.length < 10) throw new Error('중심선 점이 너무 적습니다.');
   return pts;
+}
+
+/**
+ * 고도 파일(…_z.csv: index, z_m, source) 을 중심선 점에 붙인다.
+ * 점 개수가 다르면 오류 (다른 서킷의 파일을 잘못 붙이는 실수 방지).
+ */
+export function attachElevation(cl: CenterlinePoint[], zCsv: string): CenterlinePoint[] {
+  const z: number[] = [];
+  zCsv.split(/\r?\n/).forEach((raw, i) => {
+    const line = raw.trim();
+    if (!line || line.startsWith('#') || line.startsWith('index')) return;
+    const v = Number(line.split(',')[1]);
+    if (!Number.isFinite(v)) throw new Error(`고도 파일 ${i + 1}번째 줄 형식 오류: "${line}"`);
+    z.push(v);
+  });
+  if (z.length !== cl.length) throw new Error(`고도 점 개수(${z.length})가 중심선 점 개수(${cl.length})와 다릅니다.`);
+  return cl.map((p, i) => ({ ...p, z: z[i] }));
 }
 
 // ── 근사 레이싱 라인 ──────────────────────────────────────────────
@@ -183,7 +211,13 @@ function periodicSpline(t: number[], y: number[], period: number) {
  * 닫힌 점열 → 일정 간격 ds 의 점과 곡률.
  * 실제 간격은 한 바퀴를 정수 개로 나누도록 ds 에 가깝게 조정된다.
  */
-export function resampleClosed(px: number[], py: number[], ds: number, count?: number): { s: number[]; x: number[]; y: number[]; kappa: number[]; length: number; ds: number } {
+export function resampleClosed(
+  px: number[],
+  py: number[],
+  ds: number,
+  count?: number,
+  pz?: number[],
+): { s: number[]; x: number[]; y: number[]; kappa: number[]; z?: number[]; length: number; ds: number } {
   const n = px.length;
   const t = [0];
   for (let i = 1; i < n; i++) t.push(t[i - 1] + Math.hypot(px[i] - px[i - 1], py[i] - py[i - 1]));
@@ -211,7 +245,7 @@ export function resampleClosed(px: number[], py: number[], ds: number, count?: n
   const length = acc;
   const N = count ?? Math.max(8, Math.round(length / ds));
   const dsReal = length / N;
-  const out = { s: [] as number[], x: [] as number[], y: [] as number[], kappa: [] as number[], length, ds: dsReal };
+  const out = { s: [] as number[], x: [] as number[], y: [] as number[], kappa: [] as number[], z: pz ? ([] as number[]) : undefined, length, ds: dsReal };
   let k = 0;
   for (let m = 0; m < N; m++) {
     const target = m * dsReal;
@@ -229,6 +263,11 @@ export function resampleClosed(px: number[], py: number[], ds: number, count?: n
     out.x.push(ex.val);
     out.y.push(ey.val);
     out.kappa.push((ex.d1 * ey.d2 - ey.d1 * ex.d2) / sp2 ** 1.5);
+    if (pz && out.z) {
+      // 고도는 원래 점 사이를 직선 보간 (이미 150 m 이동 평균으로 매끄럽게 다듬은 값)
+      const hi = sx(i, 0).h;
+      out.z.push(pz[i] + (pz[(i + 1) % n] - pz[i]) * (u / hi));
+    }
   }
   return out;
 }
@@ -279,7 +318,8 @@ export function buildTrack(name: string, source: string, cl: CenterlinePoint[], 
   const rough = resampleClosed(px, py, BASE);
   const M = Math.max(8, Math.round(rough.length / ds)); // 최종 점 개수
   const gsize = Math.max(1, Math.round(ds / BASE)); // 한 구간에 들어가는 기본 점 개수
-  const fine = resampleClosed(px, py, BASE, M * gsize);
+  const hasZ = cl.every((p) => p.z !== undefined);
+  const fine = resampleClosed(px, py, BASE, M * gsize, hasZ ? cl.map((p) => p.z!) : undefined);
   const half = Math.round((opt.curvatureSmoothM ?? 6) / fine.ds / 2);
   const kFine = smoothClosed(fine.kappa, half);
   const r = { s: [] as number[], x: [] as number[], y: [] as number[], kappa: [] as number[], length: fine.length, ds: fine.length / M };
@@ -292,6 +332,21 @@ export function buildTrack(name: string, source: string, cl: CenterlinePoint[], 
     r.kappa.push(k / gsize);
   }
   const kappa = r.kappa;
+  // ── 고저차: 경사(1차 차분)와 위아래 곡률(2차 차분) ──
+  let z: number[] | undefined;
+  let slope: number[] | undefined;
+  let kappaV: number[] | undefined;
+  if (hasZ && fine.z) {
+    z = [];
+    for (let m = 0; m < M; m++) z.push(fine.z[m * gsize]);
+    const h = r.ds;
+    // 경사 = (앞 점 고도 − 뒤 점 고도) / (2 × 간격)        ← 기울기의 정의
+    slope = z.map((_, i) => (z![(i + 1) % M] - z![(i - 1 + M) % M]) / (2 * h));
+    // 위아래 곡률 = 경사가 얼마나 빨리 변하는가 = (앞 − 2×지금 + 뒤) / 간격²
+    // 2차 차분은 잡음을 키우므로 30 m 길이로 한 번 더 평활한다
+    const raw = z.map((_, i) => (z![(i + 1) % M] - 2 * z![i] + z![(i - 1 + M) % M]) / (h * h));
+    kappaV = smoothClosed(raw, Math.round(15 / h));
+  }
   return {
     name,
     source,
@@ -301,6 +356,9 @@ export function buildTrack(name: string, source: string, cl: CenterlinePoint[], 
     x: r.x,
     y: r.y,
     kappa,
+    z,
+    slope,
+    kappaV,
     sectorStarts: [r.length / 3, (2 * r.length) / 3],
     centerline: cl,
     racingLine: useRL,

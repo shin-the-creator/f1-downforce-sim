@@ -29,6 +29,7 @@ npm run lap   # 몬차 기본 셋업 랩타임 보고서 (명령줄)
 |---|---|---|
 | `data/tracks/monza_tum.csv` | 몬차 중심선·트랙 폭 | TUM racetrack-database (LGPL-3.0), 원본 OpenStreetMap |
 | `data/tracks/monaco.csv` | 모나코 중심선 (트랙 폭 가정값) | bacinger/f1-circuits (MIT) 를 `tools/convert_monaco.py` 로 변환 |
+| `data/tracks/*_z.csv` | 서킷 고도 (고저차) | Open Topo Data API (EU-DEM 25 m, SRTM 30 m) — 모나코 터널 구간은 직선 가정 |
 | `data/wing_data.csv` | 윙 받음각별 CL·CD | NeuralFoil 계산값 (역방향 NACA 4412, Re 1.5×10⁶) — **실측 아님, 임시 데이터** |
 
 ### 윙 데이터 바꾸기 (데이터과학 프로젝트 CSV)

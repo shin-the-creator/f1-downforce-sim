@@ -37,8 +37,10 @@ TRACKS = {
     "monza": {
         "root": "Monza",
         "csv": ROOT / "data" / "tracks" / "monza_tum.csv",
+        "z": ROOT / "data" / "tracks" / "monza_z.csv",
+        "terrain": ROOT / "data" / "tracks" / "monza_terrain.csv",
         "out": ROOT / "public" / "models" / "monza_track.glb",
-        "source": "TUM racetrack-database (LGPL-3.0), OpenStreetMap 기반 중심선·트랙 폭",
+        "source": "TUM racetrack-database (LGPL-3.0), OpenStreetMap 기반 중심선·트랙 폭. 고도·지형: EU-DEM (Open Topo Data)",
         "ground": ("Grass", "#4d7c32"),
         "grandstands": True,
         "barriers": False,
@@ -46,23 +48,124 @@ TRACKS = {
     "monaco": {
         "root": "Monaco",
         "csv": ROOT / "data" / "tracks" / "monaco.csv",
+        "z": ROOT / "data" / "tracks" / "monaco_z.csv",
+        "terrain": ROOT / "data" / "tracks" / "monaco_terrain.csv",
         "out": ROOT / "public" / "models" / "monaco_track.glb",
-        "source": "bacinger/f1-circuits (MIT) 중심선을 변환. 트랙 폭 가정값(9 m), 고저차 없음",
-        "ground": ("Concrete", "#8d8f93"),
+        "source": "bacinger/f1-circuits (MIT) 중심선을 변환. 트랙 폭 가정값(9 m). 고도·지형: EU-DEM·SRTM (Open Topo Data), 터널 구간 고도는 직선 가정",
+        "ground": ("City_Ground", "#a39e93"),
         "grandstands": False,
         "barriers": True,
     },
 }
 
 
-def read_centerline(csv: Path):
+def read_centerline(csv: Path, zcsv: Path | None = None):
+    """중심선 (x, y, 오른쪽 폭, 왼쪽 폭, 고도 z). 고도 파일이 없으면 z = 0."""
     pts = []
     for line in csv.read_text(encoding="utf-8").splitlines():
         if not line.strip() or line.startswith("#"):
             continue
         x, y, wr, wl = map(float, line.split(","))
-        pts.append((x, y, wr, wl))
-    return pts
+        pts.append([x, y, wr, wl, 0.0])
+    if zcsv and zcsv.exists():
+        zs = [float(l.split(",")[1]) for l in zcsv.read_text().splitlines() if l and not l.startswith(("#", "index"))]
+        assert len(zs) == len(pts), "고도 점 개수가 중심선과 다름"
+        for p, z in zip(pts, zs):
+            p[4] = z
+    return [tuple(p) for p in pts]
+
+
+def read_terrain(path: Path):
+    """지형 격자 → (nx, ny, x0, y0, step, z[j][i]) — z 가 None 이면 바다"""
+    lines = path.read_text().splitlines()
+    meta = next(l for l in lines if l.startswith("# nx="))
+    kv = dict(item.split("=") for item in meta[2:].split(","))
+    nx, ny, x0, y0, step = int(kv["nx"]), int(kv["ny"]), float(kv["x0"]), float(kv["y0"]), float(kv["step"])
+    vals = [l.split(",")[2] for l in lines if l and not l.startswith(("#", "x_m"))]
+    z = [[(float(vals[j * nx + i]) if vals[j * nx + i] else None) for i in range(nx)] for j in range(ny)]
+    return nx, ny, x0, y0, step, z
+
+
+def sample_terrain(t, x, y):
+    """지형 격자를 이중선형 보간. 네 꼭짓점 중 하나라도 바다면 None"""
+    nx, ny, x0, y0, step, z = t
+    fx, fy = (x - x0) / step, (y - y0) / step
+    i, j = int(math.floor(fx)), int(math.floor(fy))
+    if i < 0 or j < 0 or i >= nx - 1 or j >= ny - 1:
+        return None
+    a, b, c, d = z[j][i], z[j][i + 1], z[j + 1][i], z[j + 1][i + 1]
+    if None in (a, b, c, d):
+        return None
+    u, v = fx - i, fy - j
+    return (a * (1 - u) + b * u) * (1 - v) + (c * (1 - u) + d * u) * v
+
+
+def build_terrain(name, raw_pts, t, mat, step=10.0, carve_in=8.0, blend=32.0):
+    """
+    지형 메시: 지형 격자를 step 간격으로 보간하고, 트랙 주변을 노면 높이에 맞춰 깎는다.
+      트랙 가장자리 + carve_in 안쪽: 노면보다 0.3 m 아래 (노면이 지형에 묻히지 않게)
+      그 바깥 blend m 동안: 노면 높이 → 원래 지형으로 부드럽게 (smoothstep)
+    바다(지형 값 없음)는 해수면 아래(−2 m)로 내려 바다 면이 덮게 한다.
+    """
+    nx, ny, x0, y0, gstep, _ = t
+    X0, Y0 = x0, y0
+    W = (nx - 1) * gstep
+    H = (ny - 1) * gstep
+    mx, my = int(W / step) + 1, int(H / step) + 1
+    # 중심선 점 공간 해시 (가장 가까운 점 빨리 찾기)
+    cell = 50.0
+    hsh = {}
+    for p in raw_pts:
+        hsh.setdefault((int(p[0] // cell), int(p[1] // cell)), []).append(p)
+
+    def nearest(x, y):
+        best, bd = None, 1e18
+        cx, cy = int(x // cell), int(y // cell)
+        for r in range(0, 4):
+            for dx in range(-r, r + 1):
+                for dy in range(-r, r + 1):
+                    if max(abs(dx), abs(dy)) != r:
+                        continue
+                    for p in hsh.get((cx + dx, cy + dy), ()):
+                        d = (p[0] - x) ** 2 + (p[1] - y) ** 2
+                        if d < bd:
+                            best, bd = p, d
+            if best is not None and math.sqrt(bd) < r * cell:
+                break
+        return best, math.sqrt(bd) if best else 1e9
+
+    bm = bmesh.new()
+    verts = []
+    for j in range(my):
+        row = []
+        for i in range(mx):
+            x, y = X0 + i * step, Y0 + j * step
+            zt = sample_terrain(t, x, y)
+            p, d = nearest(x, y)
+            half = max(p[2], p[3]) + 1.2 if p else 0
+            if zt is None:
+                z = -2.0
+            else:
+                z = zt
+            if p and d < half + carve_in + blend:
+                ztrack = p[4] - 0.3
+                if d < half + carve_in:
+                    z = ztrack
+                else:
+                    w = (d - half - carve_in) / blend
+                    w = w * w * (3 - 2 * w)  # smoothstep
+                    z = ztrack * (1 - w) + (z if zt is not None else ztrack) * w
+            row.append(bm.verts.new((x, y, z)))
+        verts.append(row)
+    for j in range(my - 1):
+        for i in range(mx - 1):
+            bm.faces.new((verts[j][i], verts[j][i + 1], verts[j + 1][i + 1], verts[j + 1][i]))
+    obj = mesh_object(name, bm, mat)
+    for f in obj.data.polygons:
+        f.use_smooth = True
+        if f.normal.z < 0:
+            f.flip()
+    return obj
 
 
 def catmull_rom_closed(pts, sub=2):
@@ -77,7 +180,7 @@ def catmull_rom_closed(pts, sub=2):
             out.append(
                 tuple(
                     0.5 * (2 * p1[j] + (-p0[j] + p2[j]) * t + (2 * p0[j] - 5 * p1[j] + 4 * p2[j] - p3[j]) * t2 + (-p0[j] + 3 * p1[j] - 3 * p2[j] + p3[j]) * t3)
-                    for j in range(4)
+                    for j in range(len(p1))
                 )
             )
     return out
@@ -110,10 +213,10 @@ def strip(name, pts, normals, inner, outer, z, mat, mask=None, mat_alt=None, alt
     n = len(pts)
     vin, vout = [], []
     for i in range(n):
-        x, y = pts[i][0], pts[i][1]
+        x, y, zc = pts[i][0], pts[i][1], pts[i][4]
         nx, ny = normals[i]
-        vin.append(bm.verts.new((x + inner(i) * nx, y + inner(i) * ny, z)))
-        vout.append(bm.verts.new((x + outer(i) * nx, y + outer(i) * ny, z)))
+        vin.append(bm.verts.new((x + inner(i) * nx, y + inner(i) * ny, zc + z)))
+        vout.append(bm.verts.new((x + outer(i) * nx, y + outer(i) * ny, zc + z)))
     for i in range(n):
         j = (i + 1) % n
         if mask and not (mask(i) and mask(j)):
@@ -139,11 +242,11 @@ def wall(name, pts, normals, offset, height, thick, mat):
     sgn = lambda i: 1 if offset(i) > 0 else -1  # noqa: E731  바깥쪽 방향
     rings = []
     for i in range(n):
-        x, y = pts[i][0], pts[i][1]
+        x, y, zc = pts[i][0], pts[i][1], pts[i][4]
         nx, ny = normals[i]
         a = offset(i)
         b = a + sgn(i) * thick
-        rings.append([bm.verts.new((x + d * nx, y + d * ny, z)) for d, z in ((a, 0), (a, height), (b, height), (b, 0))])
+        rings.append([bm.verts.new((x + d * nx, y + d * ny, zc + z)) for d, z in ((a, -0.3), (a, height), (b, height), (b, -0.3))])
     for i in range(n):
         r1, r2 = rings[i], rings[(i + 1) % n]
         for k in range(3):
@@ -170,7 +273,7 @@ def build(track_id: str = "monza"):
             "coords": "data (x,y) m = Blender (X,Y) = Three.js (x, 0, -y)",
         },
     )
-    raw = read_centerline(cfg["csv"])
+    raw = read_centerline(cfg["csv"], cfg["z"])
     pts = catmull_rom_closed(raw, 2)
     normals, curv = frames(pts)
     # 왼쪽 폭 wl = +, 오른쪽 폭 wr = −
@@ -200,17 +303,23 @@ def build(track_id: str = "monza"):
     bm = bmesh.new()
     corners = []
     for a, b in ((-raw[0][2], -0.5), (raw[0][3], -0.5), (raw[0][3], 0.5), (-raw[0][2], 0.5)):
-        corners.append(bm.verts.new((x0 + a * nx + b * tx, y0 + a * ny + b * ty, 0.008)))
+        corners.append(bm.verts.new((x0 + a * nx + b * tx, y0 + a * ny + b * ty, raw[0][4] + 0.008)))
     bm.faces.new(corners)
     objs.append(mesh_object("StartLine", bm, white))
 
-    # 잔디 (서킷을 덮는 큰 판)
+    # 지형: 고도 격자로 만든 땅 (트랙 주변은 노면 높이에 맞춰 깎음). 지형 파일이 없으면 평평한 판.
     xs = [p[0] for p in raw]
     ys = [p[1] for p in raw]
-    cx, cy = (min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2
-    gw, gh = max(xs) - min(xs) + 600, max(ys) - min(ys) + 600
-    g = box("Ground", (cx, cy, -0.06), (gw, gh, 0.1), grass)
-    objs.append(g)
+    if cfg["terrain"].exists():
+        terr = read_terrain(cfg["terrain"])
+        objs.append(build_terrain("Terrain", raw, terr, grass))
+        if any(v is None for row in terr[5] for v in row):
+            sea = material("Sea", "#1f5f8b", 0.15)
+            nxg, nyg, gx0, gy0, gs, _ = terr
+            objs.append(box("Sea", (gx0 + (nxg - 1) * gs / 2, gy0 + (nyg - 1) * gs / 2, -0.55), ((nxg - 1) * gs, (nyg - 1) * gs, 0.1), sea))
+    else:
+        cx, cy = (min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2
+        objs.append(box("Ground", (cx, cy, -0.06), (max(xs) - min(xs) + 600, max(ys) - min(ys) + 600, 0.1), grass))
 
     # 시가지 서킷: 트랙 양옆 방호벽 (연석 바깥 0.3 m, 높이 1 m) — 연출용
     if cfg["barriers"]:
@@ -226,7 +335,7 @@ def build(track_id: str = "monza"):
         # 원점에서 만든 뒤 위치·회전을 준다 (꼭짓점에 위치를 넣고 돌리면 세계 원점을 중심으로 돌아감)
         for name, size, z, mat in ((f"Grandstand_{k}", (12, 40, 8), 4, stand), (f"Grandstand_Roof_{k}", (13, 41, 0.6), 8.4, roof)):
             o = box(name, (0, 0, 0), size, mat)
-            o.location = (x - off * nx, y - off * ny, z)
+            o.location = (x - off * nx, y - off * ny, pts[i][4] + z)
             o.rotation_euler[2] = math.atan2(ny, nx)
             objs.append(o)
 

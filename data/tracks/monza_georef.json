@@ -1,0 +1,11 @@
+{
+  "description": "TUM Monza (x,y) [m] → 회전 rotation_deg, 이동 (tx,ty) → 평면 좌표 (east, north) [m] → 위도·경도 (lat0, lon0 기준 등거리 투영)",
+  "rotation_deg": -0.09617483739814818,
+  "tx_m": -450.6104230822428,
+  "ty_m": -804.5591398378739,
+  "lat0": 45.623420669354836,
+  "lon0": 9.286587806451614,
+  "rms_m": 1.1379876381851712,
+  "max_m": 2.7918970096207603,
+  "reference": "bacinger/f1-circuits it-1922.geojson (MIT)"
+}

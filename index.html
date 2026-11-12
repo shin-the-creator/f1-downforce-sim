@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="윙·디퓨저·차고 셋업에 따른 F1 랩타임 분석 시뮬레이터 (몬차·모나코)" />
+    <title>F1 공력 셋업 랩타임 시뮬레이터</title>
+  </head>
+  <body>
+    <header class="top">
+      <div class="wrap">
+        <h1>F1 공력 셋업 랩타임 시뮬레이터</h1>
+        <nav class="tabs">
+          <button class="tab active" data-tab="analysis">분석</button>
+          <button class="tab" disabled title="3단계에서 만듭니다">셋업 (준비 중)</button>
+          <button class="tab" disabled title="5단계에서 만듭니다">레이스 3D (준비 중)</button>
+        </nav>
+      </div>
+    </header>
+    <main class="wrap" id="app"></main>
+    <footer class="wrap foot">
+      서킷: TUM racetrack-database (LGPL-3.0), bacinger/f1-circuits (MIT) · 고도: EU-DEM / SRTM (Open Topo Data) · 경기장: © OpenStreetMap contributors (ODbL) ·
+      윙 데이터: NeuralFoil 계산값(실측 아님). 실제 F1 팀·드라이버와 무관한 교육용 시뮬레이터이며, 값 대부분이 가정값입니다.
+    </footer>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

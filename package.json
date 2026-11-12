@@ -12,6 +12,7 @@
     "docs:assumptions": "vite-node tools/gen-assumptions.ts"
   },
   "devDependencies": {
+    "@types/katex": "^0.16.8",
     "@types/node": "^22.20.5",
     "@types/three": "^0.170.0",
     "typescript": "^5.9.3",
@@ -20,6 +21,8 @@
     "vitest": "^3.2.7"
   },
   "dependencies": {
+    "chart.js": "^4.6.1",
+    "katex": "^0.16.47",
     "three": "^0.170.0"
   }
 }

@@ -1,0 +1,63 @@
+:root {
+  --bg: #0e1014;
+  --card: #171a21;
+  --card2: #1e222b;
+  --line: #2a2f3a;
+  --text: #e8eaee;
+  --muted: #9aa1ad;
+  --a: #4f8cff;
+  --b: #ff8a3d;
+  --accent: #e8333b;
+  --good: #34c77b;
+  --bad: #ff5a5f;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', sans-serif; line-height: 1.5; }
+.wrap { max-width: 1320px; margin: 0 auto; padding: 0 18px; }
+.top { background: #0a0b0e; border-bottom: 3px solid var(--accent); padding-top: 14px; }
+.top h1 { margin: 0 0 8px; font-size: 1.35rem; letter-spacing: -0.01em; }
+.tabs { display: flex; gap: 4px; }
+.tab { background: transparent; color: var(--muted); border: 0; padding: 8px 14px; font: inherit; border-bottom: 3px solid transparent; margin-bottom: -3px; cursor: pointer; }
+.tab.active { color: #fff; border-bottom-color: #fff; font-weight: 600; }
+.tab:disabled { opacity: 0.45; cursor: default; }
+main { padding: 16px 18px 28px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin-bottom: 14px; }
+.card h2 { font-size: 1rem; margin: 0 0 10px; display: flex; align-items: center; gap: 8px; }
+.card h2 .sub { color: var(--muted); font-weight: 400; font-size: 0.85rem; }
+.muted { color: var(--muted); font-size: 0.86rem; }
+.controls { display: flex; flex-wrap: wrap; gap: 14px 22px; align-items: flex-end; }
+.controls label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 4px; }
+.controls select { background: var(--card2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 7px 10px; font: inherit; min-width: 190px; }
+.controls .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; }
+.check { display: flex; gap: 8px; align-items: center; font-size: 0.92rem; }
+.grid { display: grid; gap: 14px; }
+.g-2 { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
+.g-cards { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 760px) { .g-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 1000px) { .g-2 { grid-template-columns: minmax(0, 1fr); } }
+.stat { background: var(--card2); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+.stat .k { font-size: 0.78rem; color: var(--muted); }
+.stat .v { font-size: 1.35rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.stat .v small { font-size: 0.8rem; font-weight: 500; color: var(--muted); }
+.stat .ab { font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+.a { color: var(--a); }
+.b { color: var(--b); }
+.gain { color: var(--good); }
+.loss { color: var(--bad); }
+.chart-wrap { position: relative; height: 330px; }
+.chart-wrap.small { height: 130px; }
+canvas.map { width: 100%; display: block; background: #0b0d11; border-radius: 8px; }
+table.t { width: 100%; border-collapse: collapse; font-size: 0.9rem; font-variant-numeric: tabular-nums; }
+table.t th, table.t td { padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: right; }
+table.t th:first-child, table.t td:first-child { text-align: left; }
+table.t th { color: var(--muted); font-weight: 600; font-size: 0.8rem; }
+table.t tr.hl td { background: rgba(232, 51, 59, 0.08); }
+.formula { background: var(--card2); border-radius: 8px; padding: 12px; overflow-x: auto; }
+.formula .katex { font-size: 1.02em; }
+.legend { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: var(--muted); margin-top: 6px; }
+.legend .bar { flex: 1; height: 8px; border-radius: 4px; background: linear-gradient(90deg, #2c6bff, #2bd4c3, #f5d63d, #ff7a29, #e8333b); }
+.note { border-left: 3px solid #f5b63d; background: rgba(245, 182, 61, 0.08); padding: 8px 12px; border-radius: 4px; font-size: 0.86rem; color: #f3ddb0; }
+.foot { color: var(--muted); font-size: 0.78rem; padding-bottom: 24px; }
+.pill { display: inline-block; font-size: 0.72rem; padding: 1px 7px; border-radius: 999px; background: var(--card2); border: 1px solid var(--line); color: var(--muted); }

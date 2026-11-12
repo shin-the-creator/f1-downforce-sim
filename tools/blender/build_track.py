@@ -258,6 +258,109 @@ def wall(name, pts, normals, offset, height, thick, mat):
     return mesh_object(name, bm, mat)
 
 
+TUNNEL_HEIGHT = 6.5  # 터널 안 높이 (m) — 가정값 (출처 없음)
+
+
+def find_tunnels(track_id: str, raw):
+    """
+    OSM 데이터에서 서킷이 지나는 터널 구간(중심선 점 번호 범위)을 찾는다.
+    조건: tunnel=yes 인 레이스 도로·일반 도로 중, 점 3개 이상이 서킷 중심선 12 m 안에 있는 것
+    (서킷 아래를 가로지르는 지하도는 중심선 근처 점이 1~2개뿐이라 걸러진다)
+    """
+    osm_path = ROOT / "data" / "osm" / f"{track_id}.json"
+    if not osm_path.exists():
+        return []
+    import json
+
+    from geo import latlon_to_local
+
+    to_xy = latlon_to_local(track_id)
+    n = len(raw)
+    ranges = []
+    for el in json.loads(osm_path.read_text())["elements"]:
+        t = el.get("tags", {})
+        if t.get("tunnel") != "yes" or t.get("highway") not in ("raceway", "primary", "secondary", "tertiary", "unclassified"):
+            continue
+        idx = []
+        for p in el.get("geometry", []):
+            x, y = to_xy(p["lat"], p["lon"])
+            j = min(range(n), key=lambda k: (raw[k][0] - x) ** 2 + (raw[k][1] - y) ** 2)
+            if math.dist(raw[j][:2], (x, y)) < 12:
+                idx.append(j)
+        if len(idx) >= 3:
+            ranges.append([min(idx), max(idx), t.get("name", "")])
+    # 겹치거나 맞닿은 구간 합치기
+    ranges.sort()
+    merged = []
+    for a, b, name in ranges:
+        if merged and a <= merged[-1][1] + 2:
+            merged[-1][1] = max(merged[-1][1], b)
+            merged[-1][2] = merged[-1][2] or name
+        else:
+            merged.append([a, b, name])
+    return merged
+
+
+def tunnel_mesh(name, pts, normals, i0, i1, inner_l, inner_r, mat, light_mat):
+    """
+    터널: 점 i0 ~ i1 구간에 양쪽 벽 + 천장 + 위 덮개 (두께 1 m), 입구·출구 테두리.
+    안쪽 면이 보이도록 재질은 양면 (Three.js 에서 차를 따라 터널 안에 들어가도 벽이 보임).
+    """
+    bm = bmesh.new()
+    H, T = TUNNEL_HEIGHT, 1.0
+    rings = []
+    for i in range(i0, i1 + 1):
+        x, y, zc = pts[i][0], pts[i][1], pts[i][4]
+        nx, ny = normals[i]
+        L, R = inner_l(i), inner_r(i)  # 왼쪽(+)·오른쪽(−) 안쪽 벽 위치
+        prof = [(R - T, -0.5), (R - T, H + T), (L + T, H + T), (L + T, -0.5), (L, -0.5), (L, H), (R, H), (R, -0.5)]
+        rings.append([bm.verts.new((x + d * nx, y + d * ny, zc + z)) for d, z in prof])
+    m = len(rings[0])
+    for r1, r2 in zip(rings, rings[1:]):
+        for k in range(m):
+            bm.faces.new((r1[k], r1[(k + 1) % m], r2[(k + 1) % m], r2[k]))
+    bm.faces.new(rings[0])  # 입구·출구 테두리(단면 링을 면으로 막지 않고 테두리만 남기기 위해 아래에서 안쪽 면 제거)
+    bm.faces.new(list(reversed(rings[-1])))
+    obj = mesh_object(name, bm, mat)
+    # 끝 단면 면은 통로까지 막으므로 지우고, 테두리 띠만 남긴다
+    bm2 = bmesh.new()
+    bm2.from_mesh(obj.data)
+    bm2.faces.ensure_lookup_table()
+    end_faces = [f for f in bm2.faces if len(f.verts) == m]
+    bmesh.ops.delete(bm2, geom=end_faces, context="FACES_ONLY")
+    for ring in (0, len(rings) - 1):
+        base = ring * m
+        bm2.verts.ensure_lookup_table()
+        v = bm2.verts
+        # 바깥 링(0..3)과 안쪽 링(4..7) 사이를 잇는 테두리: 왼쪽 벽, 천장, 오른쪽 벽
+        quads = [(0, 1, 6, 7), (1, 2, 5, 6), (2, 3, 4, 5)]
+        for q in quads:
+            f = [v[base + k] for k in q]
+            try:
+                bm2.faces.new(f if ring == 0 else list(reversed(f)))
+            except ValueError:
+                pass
+    bm2.to_mesh(obj.data)
+    bm2.free()
+    mat.use_backface_culling = False
+    # 천장 조명 (10 m 간격, 빛나는 재질)
+    lb = bmesh.new()
+    step = max(1, int(10 / max(1e-6, math.dist(pts[i0][:2], pts[i0 + 1][:2]))))
+    for i in range(i0 + 1, i1, step):
+        x, y, zc = pts[i][0], pts[i][1], pts[i][4]
+        nx, ny = normals[i]
+        c = (inner_l(i) + inner_r(i)) / 2
+        cx, cy = x + c * nx, y + c * ny
+        tx, ty = ny, -nx
+        q = [lb.verts.new((cx + a * tx + b * nx, cy + a * ty + b * ny, zc + H - 0.05)) for a, b in ((-1.2, -0.15), (1.2, -0.15), (1.2, 0.15), (-1.2, 0.15))]
+        lb.faces.new(q)
+    lights = mesh_object(f"{name}_Lights", lb, light_mat)
+    for p in lights.data.polygons:
+        if p.normal.z > 0:
+            p.flip()  # 아래(도로 쪽)를 향하게
+    return obj, lights
+
+
 def build(track_id: str = "monza"):
     cfg = TRACKS[track_id]
     reset_scene()
@@ -325,6 +428,22 @@ def build(track_id: str = "monza"):
     else:
         cx, cy = (min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2
         objs.append(box("Ground", (cx, cy, -0.06), (max(xs) - min(xs) + 600, max(ys) - min(ys) + 600, 0.1), grass))
+
+    # 터널 (OSM tunnel=yes 구간): 벽은 방호벽 바깥에
+    tunnels = find_tunnels(track_id, raw)
+    if tunnels:
+        tmat = material("Tunnel_Concrete", "#8b8680", 0.85)
+        lmat = material("Tunnel_Light", "#fff2cc", 0.5)
+        bsdf = lmat.node_tree.nodes["Principled BSDF"]
+        bsdf.inputs["Emission Color"].default_value = (1.0, 0.92, 0.75, 1.0)
+        bsdf.inputs["Emission Strength"].default_value = 6.0
+        for k, (a, b, tname) in enumerate(tunnels):
+            i0, i1 = 2 * a, min(2 * b, len(pts) - 2)  # 중심선 점 → Catmull-Rom 2배 점
+            t_obj, l_obj = tunnel_mesh(f"Tunnel_{k}", pts, normals, i0, i1, lambda i: wl(i) + kerb_w + 0.7, lambda i: wr(i) - kerb_w - 0.7, tmat, lmat)
+            t_obj["role"] = "tunnel"
+            t_obj["source"] = f"OpenStreetMap tunnel=yes ({tname}) — 높이 {TUNNEL_HEIGHT} m 는 가정값"
+            t_obj["centerlineRange"] = [a, b]
+            objs += [t_obj, l_obj]
 
     # 시가지 서킷: 트랙 양옆 방호벽 (연석 바깥 0.3 m, 높이 1 m) — 연출용
     if cfg["barriers"]:

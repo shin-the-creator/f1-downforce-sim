@@ -63,4 +63,23 @@ describe('경기장 디테일 (OpenStreetMap)', () => {
     expect(venue.getObjectByName('Venue_PitLane')).toBeDefined();
     expect(venue.getObjectByName('Venue_Trees')).toBeDefined();
   });
+
+  it('모나코 터널: OSM tunnel=yes 구간(주 터널 Boulevard Louis II, 중심선 점 약 125~198)에 있다', async () => {
+    const track = await loadGlb('../public/models/monaco_track.glb');
+    const tunnels: THREE.Object3D[] = [];
+    track.traverse((o) => {
+      if (o.userData.role === 'tunnel') tunnels.push(o);
+    });
+    expect(tunnels.length).toBeGreaterThanOrEqual(1);
+    const main = tunnels.find((t) => (t.userData.centerlineRange as number[])[1] - (t.userData.centerlineRange as number[])[0] > 40)!;
+    expect(main).toBeDefined();
+    const [a, b] = main.userData.centerlineRange as number[];
+    expect(a).toBeGreaterThan(115);
+    expect(b).toBeLessThan(210);
+    expect(String(main.userData.source)).toContain('OpenStreetMap');
+    // 터널 안 높이: 천장이 노면보다 6 m 이상 위 (차가 지나갈 수 있음)
+    const box = new THREE.Box3().setFromObject(main);
+    expect(box.max.y - box.min.y).toBeGreaterThan(6);
+  });
 });
+

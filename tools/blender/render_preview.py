@@ -60,13 +60,11 @@ def camera(loc, target, lens=40, ortho=None):
     return cam
 
 
-def pose(front=0.0, rear=0.0, diffuser=0.0, flap=0.0, ride_mm=30):
+def pose(front=0.0, rear=0.0, diffuser=0.0, ride_mm=30):
     """셋업 각도(도) 적용: Blender 에서는 +Y 축 회전 (rotation_euler[1])"""
     o = bpy.data.objects
-    o["FrontWing_Main_Pivot"].rotation_euler[1] = math.radians(front)
-    o["RearWing_Main_Pivot"].rotation_euler[1] = math.radians(rear)
-    o["FrontWing_Flap_Pivot"].rotation_euler[1] = math.radians(flap)
-    o["RearWing_Flap_Pivot"].rotation_euler[1] = math.radians(flap)
+    o["FrontWing_Flap_Pivot"].rotation_euler[1] = math.radians(front)
+    o["RearWing_Flap_Pivot"].rotation_euler[1] = math.radians(rear)
     o["Diffuser_Pivot"].rotation_euler[1] = math.radians(diffuser)
     o["Chassis"].location.z = ride_mm / 1000
 
@@ -93,11 +91,11 @@ if __name__ == "__main__":
     for o in bpy.data.objects:
         if "Endplate" in o.name or "Fence" in o.name or o.name.startswith(("Tyre", "Rim", "Arm")):
             o.hide_render = True
-    camera((-2.1, 6, 0.5), (-2.1, 0, 0.5), ortho=1.9)
+    camera((-2.1, 6, 0.6), (-2.1, 0, 0.6), ortho=1.9)
     for ang in (0, 20):
         pose(front=ang, rear=ang, diffuser=ang)
         render(IMG / f"check_rear_{ang}deg.jpg")
-    camera((2.75, 6, 0.12), (2.75, 0, 0.12), ortho=1.0)
+    camera((2.7, 6, 0.18), (2.7, 0, 0.18), ortho=1.1)
     for ang in (0, 20):
         pose(front=ang, rear=ang, diffuser=ang)
         render(IMG / f"check_front_{ang}deg.jpg")

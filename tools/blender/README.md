@@ -5,7 +5,7 @@
 
 | 스크립트 | 결과 |
 |---|---|
-| `build_car.py` | `public/models/car.glb` — 가상 디자인 차 (로우폴리, 면 약 1,000개) |
+| `build_car.py` | `public/models/car.glb` — 가상 디자인 차 (면 약 2,600개) |
 | `build_track.py` | `public/models/monza_track.glb` — 몬차 노면·흰 선·연석·출발선·잔디·관중석 |
 | `render_preview.py` | `docs/images/car_*.jpg`, `check_*.jpg` — 차 미리보기와 윙·디퓨저 각도 확인 그림 |
 | `render_track.py` | `docs/images/track_*.jpg` — 서킷 전체, 첫 시케인, 메인 직선, 출발선 위의 차 |
@@ -37,9 +37,8 @@ Blender 프로그램이 있으면 `blender --background --python tools/blender/b
 
 | 물체 이름 | role | 쓰는 법 (Three.js) |
 |---|---|---|
-| `FrontWing_Main_Pivot` | frontWing | `rotation.z = −각도(rad)` → + 각도 = 앞전 아래로 = 다운포스 증가 |
-| `RearWing_Main_Pivot` | rearWing | 위와 같음 |
-| `FrontWing_Flap_Pivot`, `RearWing_Flap_Pivot` | frontFlap, rearFlap | 플랩 추가 각도 (액티브 에어로 Straight Mode 에서 음수 = 눕힘) |
+| `FrontWing_Flap_Pivot` | frontWing | `rotation.z = −각도(rad)` → + 각도 = 플랩 앞전 아래로(뒤끝 위로) = 다운포스 증가. 플랩 2장이 함께 돈다 |
+| `RearWing_Flap_Pivot` | rearWing | 위와 같음. 액티브 에어로 Straight Mode 에서는 플랩을 눕힌다 |
 | `Diffuser_Pivot` | diffuser | `rotation.z = −각도` → + = 뒤끝이 위로 (확장각) |
 | `Chassis` | rideHeight | `position.y = 차고(m)`. 기준 0.030 m. 바퀴는 따라 움직이지 않음 |
 | `Wheel_FL/FR/RL/RR` | wheel | `rotation.z` 로 굴러감, `radius_m` 반지름 |
@@ -53,5 +52,9 @@ Blender 프로그램이 있으면 `blender --background --python tools/blender/b
 - 차는 **실제 팀·차를 본뜨지 않은 가상 디자인**이다 (청록·흰색·카본, 로고 없음).
   치수는 2026 규정 보도값(휠베이스 약 3.4 m, 폭 약 1.9 m)에 대략 맞춘 디자인용 근사값이다.
 - 윙 단면은 물리 모델의 기본 윙 데이터와 같은 **역방향 NACA 4412** 다.
+- 실제 F1 처럼 부품이 붙어 있다: 노즈 끝 → 프런트 윙 메인플레인, 모든 윙 → 엔드플레이트, 리어 윙 → 스완넥 기둥 → 충돌 구조물.
+  `tests/models.test.ts` 가 "떠 있는 부품이 없는지" 검사한다 (플랩 최대 20° 포함).
+- 셋업의 윙 각도는 실제 F1 처럼 **플랩 각도**로 보여 준다 (메인플레인은 고정).
+  물리 모델은 윙을 날개 한 장(받음각)으로 계산하므로, 3D 의 플랩 각도는 그 받음각을 눈에 보이게 표현한 것이다.
 - 서킷 형상은 TUM racetrack-database (LGPL-3.0, OpenStreetMap 기반) 중심선과 트랙 폭.
   연석은 곡률로 자동 배치한 연출용이고, 관중석은 가상 구조물이다. 고저차는 없다(평평하다고 가정).

@@ -201,3 +201,107 @@ def finish() -> None:
     sys.stdout.flush()
     sys.stderr.flush()
     os._exit(0)
+
+
+def loft2(name: str, sections, mat=None, parent=None, n_around: int = 24, closed_ends=True):
+    """
+    윗부분·아랫부분 모양이 다른 몸체 (예: 아래가 평평한 노즈).
+    sections = [(x, 반폭, 위 z, 아래 z, 위쪽 지수, 아래쪽 지수, y 중심), ...]
+      지수가 클수록 각진 사각형, 2 면 타원. y 중심을 생략하면 0.
+    """
+    bm = bmesh.new()
+    rings = []
+    for sec in sections:
+        x, hw, top, bot, pt, pb = sec[:6]
+        yc = sec[6] if len(sec) > 6 else 0.0
+        zc = (top + bot) / 2
+        hz = (top - bot) / 2
+        ring = []
+        for k in range(n_around):
+            t = 2 * math.pi * k / n_around
+            c, s = math.cos(t), math.sin(t)
+            p = pt if s >= 0 else pb
+            y = yc + hw * math.copysign(abs(c) ** (2 / p), c)
+            z = zc + hz * math.copysign(abs(s) ** (2 / p), s)
+            ring.append(bm.verts.new((x, y, z)))
+        rings.append(ring)
+    for a, b in zip(rings, rings[1:]):
+        for k in range(n_around):
+            bm.faces.new((a[k], a[(k + 1) % n_around], b[(k + 1) % n_around], b[k]))
+    if closed_ends:
+        bm.faces.new(rings[0])
+        bm.faces.new(list(reversed(rings[-1])))
+    return mesh_object(name, bm, mat, parent)
+
+
+def plate(name: str, outline, z0: float, z1: float, mat=None, parent=None):
+    """XY 평면의 다각형 outline [(x, y)] 을 z0 ~ z1 두께로 만든 판 (바닥·끝판 등)"""
+    bm = bmesh.new()
+    bot = [bm.verts.new((x, y, z0)) for x, y in outline]
+    top = [bm.verts.new((x, y, z1)) for x, y in outline]
+    n = len(outline)
+    bm.faces.new(list(reversed(bot)))
+    bm.faces.new(top)
+    for k in range(n):
+        bm.faces.new((bot[k], bot[(k + 1) % n], top[(k + 1) % n], top[k]))
+    return mesh_object(name, bm, mat, parent)
+
+
+def side_plate(name: str, outline_xz, y0: float, y1: float, mat=None, parent=None):
+    """XZ 평면의 다각형 [(x, z)] 을 y0 ~ y1 두께로 만든 세로 판 (엔드플레이트·샤크핀)"""
+    bm = bmesh.new()
+    a = [bm.verts.new((x, y0, z)) for x, z in outline_xz]
+    b = [bm.verts.new((x, y1, z)) for x, z in outline_xz]
+    n = len(outline_xz)
+    bm.faces.new(a)
+    bm.faces.new(list(reversed(b)))
+    for k in range(n):
+        bm.faces.new((a[k], a[(k + 1) % n], b[(k + 1) % n], b[k]))
+    return mesh_object(name, bm, mat, parent)
+
+
+def tyre(name: str, center, radius: float, rim_radius: float, width: float, mat=None, parent=None, segments: int = 32):
+    """
+    타이어: 단면(트레드 + 둥근 옆면)을 바퀴 축(Y) 둘레로 돌린 회전체.
+    18인치 휠처럼 옆면이 낮은(타이어 높이가 작은) 모양.
+    """
+    import mathutils
+
+    hw = width / 2
+    sw = radius - rim_radius  # 옆면 높이
+    prof = [  # (반지름, y) — 안쪽 림 → 옆면 → 트레드 → 반대쪽
+        (rim_radius, -hw * 0.92),
+        (rim_radius + sw * 0.55, -hw),
+        (radius - sw * 0.12, -hw * 0.97),
+        (radius, -hw * 0.85),
+        (radius, hw * 0.85),
+        (radius - sw * 0.12, hw * 0.97),
+        (rim_radius + sw * 0.55, hw),
+        (rim_radius, hw * 0.92),
+    ]
+    bm = bmesh.new()
+    rings = []
+    for k in range(segments):
+        t = 2 * math.pi * k / segments
+        rings.append([bm.verts.new(mathutils.Vector((center[0] + r * math.cos(t), center[1] + y, center[2] + r * math.sin(t)))) for r, y in prof])
+    m = len(prof)
+    for k in range(segments):
+        a, b = rings[k], rings[(k + 1) % segments]
+        for j in range(m - 1):
+            bm.faces.new((a[j], a[j + 1], b[j + 1], b[j]))
+    return mesh_object(name, bm, mat, parent)
+
+
+def smooth_by_angle(obj, angle_deg: float = 30.0) -> None:
+    """각이 angle_deg 보다 크게 꺾이는 모서리는 날카롭게, 나머지 면은 매끄럽게 (glTF 로 그대로 내보내짐)"""
+    me = obj.data
+    bm = bmesh.new()
+    bm.from_mesh(me)
+    lim = math.radians(angle_deg)
+    for f in bm.faces:
+        f.smooth = True
+    for e in bm.edges:
+        if len(e.link_faces) != 2 or e.calc_face_angle(0.0) > lim:
+            e.smooth = False  # 날카로운 모서리
+    bm.to_mesh(me)
+    bm.free()

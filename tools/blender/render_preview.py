@@ -82,6 +82,8 @@ if __name__ == "__main__":
     pose(front=8, rear=8, diffuser=12)
     camera((5.2, 4.6, 2.4), (0, 0, 0.35), lens=35)
     render(IMG / "car_three_quarter.jpg")
+    camera((4.4, 1.9, 1.0), (2.0, 0, 0.28), lens=40)
+    render(IMG / "car_nose.jpg")
     # 측면: 윙 각도 비교 (0° vs 20°)
     camera((0, 9, 0.55), (0, 0, 0.45), ortho=6.6)
     for ang in (0, 20):

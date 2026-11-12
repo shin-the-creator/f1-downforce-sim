@@ -89,6 +89,24 @@ describe('Blender 모델 (glb) — Three.js 에서 읽기', () => {
     }
   });
 
+  it('색 구역: 모든 부품에 colorZone 이 있고, 같은 구역은 같은 재질을 공유한다', async () => {
+    const car = await loadGlb('../public/models/car.glb');
+    const zoneMats = new Map<string, Set<string>>();
+    car.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (!m.isMesh) return;
+      // glTF 로더는 extras 를 메시를 감싼 노드 또는 메시 자신의 userData 에 넣는다
+      const zone = (m.userData.colorZone ?? m.parent?.userData.colorZone) as string | undefined;
+      expect(zone, m.name).toBeDefined();
+      const mat = (m.material as THREE.Material).name;
+      if (!zoneMats.has(zone!)) zoneMats.set(zone!, new Set());
+      zoneMats.get(zone!)!.add(mat);
+    });
+    for (const z of ['body', 'accent', 'flap', 'carbon', 'helmet', 'rim', 'tyre']) {
+      expect(zoneMats.get(z)?.size, z).toBe(1);
+    }
+  });
+
   it('떠 있는 부품이 없다: 날개는 엔드플레이트에, 노즈는 프런트 윙에, 리어 윙은 기둥에 닿는다', async () => {
     const car = await loadGlb('../public/models/car.glb');
     car.updateWorldMatrix(true, true);
@@ -150,18 +168,23 @@ describe('Blender 모델 (glb) — Three.js 에서 읽기', () => {
     expect(wheel.getWorldPosition(new THREE.Vector3()).y).toBeCloseTo(w0, 9);
   });
 
-  it('서킷: 물리 계산과 같은 좌표 — 데이터 (x, y) = Three.js (x, −z)', async () => {
-    const track = await loadGlb('../public/models/monza_track.glb');
-    const start = track.getObjectByName('StartLine')!;
-    const c = new THREE.Box3().setFromObject(start).getCenter(new THREE.Vector3());
-    const cl = parseCenterlineCsv(readFileSync(new URL('../data/tracks/monza_tum.csv', import.meta.url), 'utf-8'));
-    expect(c.x).toBeCloseTo(cl[0].x, 0);
-    expect(-c.z).toBeCloseTo(cl[0].y, 0);
-    // 노면 전체 크기가 중심선 범위와 같다
-    const b = new THREE.Box3().setFromObject(track.getObjectByName('Track_Asphalt')!);
-    const xs = cl.map((p) => p.x);
-    expect(b.min.x).toBeGreaterThan(Math.min(...xs) - 20);
-    expect(b.max.x).toBeLessThan(Math.max(...xs) + 20);
-    expect(track.getObjectByName('Monza')!.userData.source).toContain('TUM');
+  it('서킷 (몬차·모나코): 물리 계산과 같은 좌표 — 데이터 (x, y) = Three.js (x, −z)', async () => {
+    for (const [glb, csv, root] of [
+      ['../public/models/monza_track.glb', '../data/tracks/monza_tum.csv', 'Monza'],
+      ['../public/models/monaco_track.glb', '../data/tracks/monaco.csv', 'Monaco'],
+    ]) {
+      const track = await loadGlb(glb);
+      const start = track.getObjectByName('StartLine')!;
+      const c = new THREE.Box3().setFromObject(start).getCenter(new THREE.Vector3());
+      const cl = parseCenterlineCsv(readFileSync(new URL(csv, import.meta.url), 'utf-8'));
+      expect(c.x, root).toBeCloseTo(cl[0].x, 0);
+      expect(-c.z, root).toBeCloseTo(cl[0].y, 0);
+      // 노면 전체 크기가 중심선 범위와 같다
+      const b = new THREE.Box3().setFromObject(track.getObjectByName('Track_Asphalt')!);
+      const xs = cl.map((p) => p.x);
+      expect(b.min.x, root).toBeGreaterThan(Math.min(...xs) - 20);
+      expect(b.max.x, root).toBeLessThan(Math.max(...xs) + 20);
+      expect(track.getObjectByName(root)!.userData.source, root).toBeTruthy();
+    }
   });
 });

@@ -6,7 +6,7 @@
 | 스크립트 | 결과 |
 |---|---|
 | `build_car.py` | `public/models/car.glb` — 가상 디자인 차 (면 약 2,600개) |
-| `build_track.py` | `public/models/monza_track.glb` — 몬차 노면·흰 선·연석·출발선·잔디·관중석 |
+| `build_track.py` | `public/models/monza_track.glb` — 몬차 노면·흰 선·연석·출발선·잔디·관중석<br>`public/models/monaco_track.glb` — 모나코 노면·연석·방호벽·콘크리트 바닥 |
 | `render_preview.py` | `docs/images/car_*.jpg`, `check_*.jpg` — 차 미리보기와 윙·디퓨저 각도 확인 그림 |
 | `render_track.py` | `docs/images/track_*.jpg` — 서킷 전체, 첫 시케인, 메인 직선, 출발선 위의 차 |
 
@@ -43,6 +43,21 @@ Blender 프로그램이 있으면 `blender --background --python tools/blender/b
 | `Chassis` | rideHeight | `position.y = 차고(m)`. 기준 0.030 m. 바퀴는 따라 움직이지 않음 |
 | `Wheel_FL/FR/RL/RR` | wheel | `rotation.z` 로 굴러감, `radius_m` 반지름 |
 | `Anchor_FrontWing/RearWing/Floor/CoG` | anchor | 힘 화살표를 붙일 위치 |
+
+### 색 구역 (플레이어가 부위별 색 지정용)
+
+모든 부품 메시의 extras 에 `colorZone` 이 있다. 같은 구역은 재질 하나를 공유하므로 재질 색만 바꾸면 구역 전체가 바뀐다.
+
+| colorZone | 재질 | 부품 |
+|---|---|---|
+| body | Body_Teal | 모노코크·노즈·엔진 커버·사이드포드·미러·샤크핀 |
+| accent | Accent_White | 엔드플레이트·줄무늬 |
+| flap | Flap_Orange | 프런트·리어 윙 플랩 |
+| carbon | Carbon | 메인플레인·바닥·디퓨저·헤일로·서스펜션 |
+| helmet | Helmet | 헬멧 |
+| rim | Rim | 휠 |
+| tyre | Tyre | 타이어 |
+| fixed | Inlet_Dark, Rain_Light | 흡입구·조종석·후미등 (색 고정) |
 
 일반 규칙: `object.rotation[userData.axis] = userData.sign × 각도(rad)`.
 (Blender 의 +Y 축 회전이 glTF 에서는 −Z 축 회전이 되기 때문에 sign = −1.)

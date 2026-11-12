@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parents[2]
 IMG = ROOT / "docs" / "images"
 
 if __name__ == "__main__":
-    raw = build_track.build()
+    raw = build_track.build("monza")
     setup_render(1280, 960, 16)
     bpy.data.objects["Plane"].hide_render = True  # setup_render 의 회색 바닥 숨김 (잔디가 있음)
     xs = [p[0] for p in raw]
@@ -50,4 +50,25 @@ if __name__ == "__main__":
     back = (x0 - 9 * math.cos(heading) + 4 * math.sin(heading), y0 - 9 * math.sin(heading) - 4 * math.cos(heading), 2.6)
     camera(back, (x0, y0, 0.4), lens=32)
     render(IMG / "track_car_start.jpg")
+
+    # 모나코 전체 모습과 로우스 헤어핀 근처
+    raw = build_track.build("monaco")
+    setup_render(1280, 960, 16)
+    bpy.data.objects["Plane"].hide_render = True
+    xs = [p[0] for p in raw]
+    ys = [p[1] for p in raw]
+    cx, cy = (min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2
+    span = max(max(xs) - min(xs), (max(ys) - min(ys)) * 1280 / 960) * 1.08
+    camera((cx, cy, 3000), (cx, cy + 0.01, 0), ortho=span)
+    render(IMG / "track_monaco_overview.jpg")
+    bpy.ops.import_scene.gltf(filepath=str(ROOT / "public" / "models" / "car.glb"))
+    car = bpy.data.objects["Car"]
+    (x0, y0, *_), (x1, y1, *_) = raw[3], raw[4]
+    heading = math.atan2(y1 - y0, x1 - x0)
+    car.location = (x0, y0, 0)
+    car.rotation_mode = "XYZ"  # glTF 로 불러온 물체는 쿼터니언 모드라 이걸 바꿔야 rotation_euler 가 적용됨
+    car.rotation_euler = (0, 0, heading)
+    bpy.context.scene.render.resolution_y = 720
+    camera((x0 - 9 * math.cos(heading) + 4 * math.sin(heading), y0 - 9 * math.sin(heading) - 4 * math.cos(heading), 2.6), (x0, y0, 0.4), lens=32)
+    render(IMG / "track_monaco_car.jpg")
     finish()

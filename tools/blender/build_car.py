@@ -18,6 +18,7 @@
   Chassis               차고 (position.y), 바퀴는 따라 움직이지 않음
   Wheel_FL/FR/RL/RR     바퀴 (rotation.z = 굴러감)
   Anchor_*              힘 화살표 부착점
+  색 구역: 모든 부품에 extras.colorZone (body, accent, flap, carbon, helmet, rim, tyre, fixed)
 
 실행:  python tools/blender/build_car.py   (bpy 4.2, Python 3.11)
 """
@@ -61,6 +62,20 @@ ZW = TYRE_R - REF_RIDE_HEIGHT  # Chassis 좌표에서 바퀴 중심 높이
 
 ROT = {"axis": "z", "sign": -1}  # Blender +Y 축 회전 = Three.js −Z 축 회전
 
+# 색 구역: 화면에서 플레이어가 부위별로 색을 바꿀 수 있게, 재질 이름 → 구역 이름을 glTF extras 로 남긴다.
+# 같은 구역의 부품은 같은 재질을 공유하므로, Three.js 에서 재질 색 하나만 바꾸면 그 구역 전체가 바뀐다.
+COLOR_ZONES = {
+    "Body_Teal": "body",  # 차체 주색: 모노코크·노즈·엔진 커버·사이드포드·미러·샤크핀
+    "Accent_White": "accent",  # 포인트색: 엔드플레이트·줄무늬
+    "Flap_Orange": "flap",  # 윙 플랩
+    "Carbon": "carbon",  # 카본 부품: 메인플레인·바닥·디퓨저·헤일로·서스펜션
+    "Helmet": "helmet",
+    "Rim": "rim",
+    "Tyre": "tyre",
+    "Inlet_Dark": "fixed",  # 흡입구·조종석 (색 고정)
+    "Rain_Light": "fixed",
+}
+
 
 def build() -> None:
     reset_scene()
@@ -84,11 +99,12 @@ def build() -> None:
         loft2(
             "Monocoque",
             [
-                (2.86, 0.055, 0.185, 0.105, 2.6, 8),
-                (2.60, 0.085, 0.255, 0.115, 2.6, 8),
-                (2.20, 0.125, 0.365, 0.135, 2.8, 8),
-                (1.80, 0.170, 0.465, 0.155, 3.0, 8),
-                (1.45, 0.220, 0.555, 0.170, 3.2, 8),
+                # 노즈: 윗면 지수 4 대 → 둥근 원통이 아니라 윗면이 평평하고 모서리에 살짝 각이 선 단면
+                (2.86, 0.058, 0.185, 0.105, 4.0, 8),
+                (2.60, 0.088, 0.255, 0.115, 4.2, 8),
+                (2.20, 0.128, 0.365, 0.135, 4.4, 8),
+                (1.80, 0.172, 0.465, 0.155, 4.4, 8),
+                (1.45, 0.222, 0.555, 0.170, 4.2, 8),
                 (1.15, 0.270, 0.600, 0.090, 3.6, 8),
                 (0.80, 0.320, 0.630, 0.030, 4.0, 10),
                 (0.40, 0.360, 0.660, 0.015, 4.0, 10),
@@ -236,6 +252,7 @@ def build() -> None:
     for o in parts:
         if o is not None and o.type == "MESH":
             smooth_by_angle(o, 30)
+            o["colorZone"] = COLOR_ZONES[o.data.materials[0].name]
 
 
 if __name__ == "__main__":

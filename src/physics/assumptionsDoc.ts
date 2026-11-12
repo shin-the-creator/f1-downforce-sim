@@ -33,6 +33,7 @@ export function assumptionsMarkdown(): string {
     '| 데이터 | 출처 | 비고 |',
     '|---|---|---|',
     '| 몬차 중심선·트랙 폭 (`data/tracks/monza_tum.csv`) | TUM racetrack-database (LGPL-3.0), 원본 OpenStreetMap | 평활화된 근사 형상. 자세한 내용은 `data/tracks/README.md` |',
+    '| 모나코 중심선 (`data/tracks/monaco.csv`) | bacinger/f1-circuits (MIT) GeoJSON 을 변환 | **트랙 폭은 가정값 9 m**, 고저차 없음. `data/tracks/README.md` |',
     '| 기본 윙 데이터 (`data/wing_data.csv`) | NeuralFoil 0.3.3 계산값, 역방향 NACA 4412, Re 1.5×10⁶ | **실측 아님.** 데이터과학 프로젝트 측정값으로 교체 예정 |',
     '',
     '## 가정 모델과 단순화',
@@ -49,6 +50,7 @@ export function assumptionsMarkdown(): string {
     '| 레이싱 라인 | 트랙 폭 안에서 곡률 제곱 합을 줄인 근사선. 최소 랩타임 선이 아님. 연석 미사용 |',
     '| 섹터 | 한 바퀴를 거리로 3등분. 공식 섹터 경계 아님 |',
     '| 출발선 | 데이터 첫 점. 정확한 실제 출발선 위치는 확인하지 못함 |',
+    '| 고저차 | 두 서킷 모두 평평하다고 가정 (모나코는 실제로 고저차가 큼) |',
     '| 연료·타이어 마모·바람·노면 경사 | 무시 |',
     '',
   ].join('\n');

@@ -12,6 +12,7 @@ import mathutils
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import build_car  # noqa: E402
+from common import finish  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 IMG = ROOT / "docs" / "images"
@@ -26,6 +27,8 @@ def setup_render(w=1280, h=720, samples=24):
     sc.render.resolution_x = w
     sc.render.resolution_y = h
     sc.render.film_transparent = False
+    sc.render.image_settings.file_format = "JPEG"  # 렌더 노이즈 때문에 PNG 는 너무 큼
+    sc.render.image_settings.quality = 85
     world = bpy.data.worlds.new("World")
     world.use_nodes = True
     world.node_tree.nodes["Background"].inputs["Color"].default_value = (0.82, 0.86, 0.9, 1)
@@ -80,12 +83,12 @@ if __name__ == "__main__":
     setup_render()
     pose(front=8, rear=8, diffuser=12)
     camera((5.2, 4.6, 2.4), (0, 0, 0.35), lens=35)
-    render(IMG / "car_three_quarter.png")
+    render(IMG / "car_three_quarter.jpg")
     # 측면: 윙 각도 비교 (0° vs 20°)
     camera((0, 9, 0.55), (0, 0, 0.45), ortho=6.6)
     for ang in (0, 20):
         pose(front=ang, rear=ang, diffuser=ang)
-        render(IMG / f"car_side_{ang}deg.png")
+        render(IMG / f"car_side_{ang}deg.jpg")
     # 각도 확인용: 끝판·바퀴를 숨기고 리어 윙·디퓨저 확대 (차 뒤쪽이 화면 오른쪽)
     for o in bpy.data.objects:
         if "Endplate" in o.name or "Fence" in o.name or o.name.startswith(("Tyre", "Rim", "Arm")):
@@ -93,8 +96,9 @@ if __name__ == "__main__":
     camera((-2.1, 6, 0.5), (-2.1, 0, 0.5), ortho=1.9)
     for ang in (0, 20):
         pose(front=ang, rear=ang, diffuser=ang)
-        render(IMG / f"check_rear_{ang}deg.png")
+        render(IMG / f"check_rear_{ang}deg.jpg")
     camera((2.75, 6, 0.12), (2.75, 0, 0.12), ortho=1.0)
     for ang in (0, 20):
         pose(front=ang, rear=ang, diffuser=ang)
-        render(IMG / f"check_front_{ang}deg.png")
+        render(IMG / f"check_front_{ang}deg.jpg")
+    finish()

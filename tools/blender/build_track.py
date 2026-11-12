@@ -27,7 +27,7 @@ import bpy  # bpy 를 먼저 불러와야 bmesh 를 쓸 수 있다
 import bmesh  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import box, empty, export_glb, material, mesh_object, reset_scene  # noqa: E402
+from common import box, empty, export_glb, finish, material, mesh_object, reset_scene  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 CSV = ROOT / "data" / "tracks" / "monza_tum.csv"
@@ -194,3 +194,4 @@ if __name__ == "__main__":
     export_glb(str(OUT))
     faces = sum(len(o.data.polygons) for o in bpy.data.objects if o.type == "MESH")
     print(f"저장: {OUT} ({OUT.stat().st_size / 1024:.0f} KB, 면 {faces}개, 중심선 점 {len(raw)}개)")
+    finish()

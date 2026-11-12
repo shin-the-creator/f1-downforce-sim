@@ -29,7 +29,7 @@ from pathlib import Path
 import bpy
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from common import box, cylinder_y, empty, export_glb, loft, material, reset_scene, tube, wing  # noqa: E402
+from common import box, cylinder_y, empty, export_glb, finish, loft, material, reset_scene, tube, wing  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / "public" / "models" / "car.glb"
@@ -162,3 +162,4 @@ if __name__ == "__main__":
     export_glb(str(OUT))
     tris = sum(len(o.data.polygons) for o in bpy.data.objects if o.type == "MESH")
     print(f"저장: {OUT} ({OUT.stat().st_size / 1024:.0f} KB, 면 {tris}개, 물체 {len(bpy.data.objects)}개)")
+    finish()

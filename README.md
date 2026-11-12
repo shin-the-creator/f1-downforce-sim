@@ -21,7 +21,7 @@ npm run lap   # 몬차 기본 셋업 랩타임 보고서 (명령줄)
 
 | | |
 |---|---|
-| ![차](docs/images/car_three_quarter.png) | ![몬차](docs/images/track_overview.png) |
+| ![차](docs/images/car_three_quarter.jpg) | ![몬차](docs/images/track_overview.jpg) |
 
 ## 데이터
 

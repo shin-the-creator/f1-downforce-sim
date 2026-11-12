@@ -187,3 +187,17 @@ def export_glb(path: str) -> None:
         export_cameras=False,
         export_lights=False,
     )
+
+
+def finish() -> None:
+    """
+    스크립트를 정상 종료한다.
+    bpy 모듈(4.2)은 출력이 파일·/dev/null 로 향할 때 Python 종료 정리 단계에서 비정상 종료(코드 139)하는
+    경우가 있다 (결과 파일은 이미 다 쓴 뒤). 출력을 비운 뒤 정리 단계를 건너뛰고 코드 0 으로 끝낸다.
+    """
+    import os
+    import sys
+
+    sys.stdout.flush()
+    sys.stderr.flush()
+    os._exit(0)

@@ -7,8 +7,8 @@
 |---|---|
 | `build_car.py` | `public/models/car.glb` — 가상 디자인 차 (로우폴리, 면 약 1,000개) |
 | `build_track.py` | `public/models/monza_track.glb` — 몬차 노면·흰 선·연석·출발선·잔디·관중석 |
-| `render_preview.py` | `docs/images/car_*.png`, `check_*.png` — 차 미리보기와 윙·디퓨저 각도 확인 그림 |
-| `render_track.py` | `docs/images/track_*.png` — 서킷 전체, 첫 시케인, 메인 직선, 출발선 위의 차 |
+| `render_preview.py` | `docs/images/car_*.jpg`, `check_*.jpg` — 차 미리보기와 윙·디퓨저 각도 확인 그림 |
+| `render_track.py` | `docs/images/track_*.jpg` — 서킷 전체, 첫 시케인, 메인 직선, 출발선 위의 차 |
 
 ## 실행
 

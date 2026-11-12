@@ -15,6 +15,14 @@ npm run lap   # 몬차 기본 셋업 랩타임 보고서 (명령줄)
 - 모든 기본값·가정 목록: [`docs/assumptions.md`](docs/assumptions.md) (`npm run docs:assumptions` 로 자동 생성)
 - 서킷 데이터 출처: [`data/tracks/README.md`](data/tracks/README.md)
 
+## 3D 모델 (Blender)
+
+차와 몬차 서킷 모델은 Blender Python 스크립트로 만든다 → [`tools/blender/README.md`](tools/blender/README.md)
+
+| | |
+|---|---|
+| ![차](docs/images/car_three_quarter.png) | ![몬차](docs/images/track_overview.png) |
+
 ## 데이터
 
 | 파일 | 내용 | 출처 |

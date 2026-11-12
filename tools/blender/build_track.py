@@ -82,46 +82,48 @@ def read_terrain(path: Path):
     kv = dict(item.split("=") for item in meta[2:].split(","))
     nx, ny, x0, y0, step = int(kv["nx"]), int(kv["ny"]), float(kv["x0"]), float(kv["y0"]), float(kv["step"])
     vals = [l.split(",")[2] for l in lines if l and not l.startswith(("#", "x_m"))]
-    z = [[(float(vals[j * nx + i]) if vals[j * nx + i] else None) for i in range(nx)] for j in range(ny)]
+    # 해발 0.3 m 이하는 바다로 본다: EU-DEM 은 항구 안 바다를 빈칸이 아니라 0 m 로 주는 곳이 있어,
+    # 그대로 두면 지형이 바다 면과 같은 높이에서 겹쳐 렌더링이 깨진다.
+    def val(v):
+        return float(v) if v and float(v) > 0.3 else None
+
+    z = [[val(vals[j * nx + i]) for i in range(nx)] for j in range(ny)]
     return nx, ny, x0, y0, step, z
 
 
 def sample_terrain(t, x, y):
-    """지형 격자를 이중선형 보간. 네 꼭짓점 중 하나라도 바다면 None"""
+    """
+    지형 격자를 이중선형 보간. 바다(값 없음)는 해발 −1 m 로 보고 섞는다
+    → 해안선이 격자 모양 계단이 아니라 부드러운 곡선(고도 0 m 선)이 된다. 격자 밖이면 None.
+    """
     nx, ny, x0, y0, step, z = t
     fx, fy = (x - x0) / step, (y - y0) / step
     i, j = int(math.floor(fx)), int(math.floor(fy))
     if i < 0 or j < 0 or i >= nx - 1 or j >= ny - 1:
         return None
-    a, b, c, d = z[j][i], z[j][i + 1], z[j + 1][i], z[j + 1][i + 1]
-    if None in (a, b, c, d):
-        return None
+    sea = -1.0
+    a, b, c, d = (v if v is not None else sea for v in (z[j][i], z[j][i + 1], z[j + 1][i], z[j + 1][i + 1]))
     u, v = fx - i, fy - j
     return (a * (1 - u) + b * u) * (1 - v) + (c * (1 - u) + d * u) * v
 
 
-def build_terrain(name, raw_pts, t, mat, step=10.0, carve_in=8.0, blend=32.0):
+def make_ground(raw_pts, t, carve_in=8.0, blend=32.0):
     """
-    지형 메시: 지형 격자를 step 간격으로 보간하고, 트랙 주변을 노면 높이에 맞춰 깎는다.
+    지면 높이 함수 ground(x, y) 를 만든다 (지형 메시·건물·나무가 모두 이 함수를 쓴다).
       트랙 가장자리 + carve_in 안쪽: 노면보다 0.3 m 아래 (노면이 지형에 묻히지 않게)
       그 바깥 blend m 동안: 노면 높이 → 원래 지형으로 부드럽게 (smoothstep)
-    바다(지형 값 없음)는 해수면 아래(−2 m)로 내려 바다 면이 덮게 한다.
+    반환: (ground 함수, nearest 함수)
     """
-    nx, ny, x0, y0, gstep, _ = t
-    X0, Y0 = x0, y0
-    W = (nx - 1) * gstep
-    H = (ny - 1) * gstep
-    mx, my = int(W / step) + 1, int(H / step) + 1
-    # 중심선 점 공간 해시 (가장 가까운 점 빨리 찾기)
     cell = 50.0
     hsh = {}
     for p in raw_pts:
         hsh.setdefault((int(p[0] // cell), int(p[1] // cell)), []).append(p)
 
     def nearest(x, y):
+        """가장 가까운 중심선 점과 거리 (공간 해시로 빠르게)"""
         best, bd = None, 1e18
         cx, cy = int(x // cell), int(y // cell)
-        for r in range(0, 4):
+        for r in range(0, 6):
             for dx in range(-r, r + 1):
                 for dy in range(-r, r + 1):
                     if max(abs(dx), abs(dy)) != r:
@@ -132,31 +134,33 @@ def build_terrain(name, raw_pts, t, mat, step=10.0, carve_in=8.0, blend=32.0):
                             best, bd = p, d
             if best is not None and math.sqrt(bd) < r * cell:
                 break
-        return best, math.sqrt(bd) if best else 1e9
+        return best, (math.sqrt(bd) if best else 1e9)
 
-    bm = bmesh.new()
-    verts = []
-    for j in range(my):
-        row = []
-        for i in range(mx):
-            x, y = X0 + i * step, Y0 + j * step
-            zt = sample_terrain(t, x, y)
-            p, d = nearest(x, y)
-            half = max(p[2], p[3]) + 1.2 if p else 0
-            if zt is None:
-                z = -2.0
-            else:
-                z = zt
-            if p and d < half + carve_in + blend:
+    def ground(x, y):
+        zt = sample_terrain(t, x, y)
+        z = zt if zt is not None else -1.0
+        p, d = nearest(x, y)
+        if p is not None:
+            half = max(p[2], p[3]) + 1.2
+            if d < half + carve_in + blend:
                 ztrack = p[4] - 0.3
                 if d < half + carve_in:
-                    z = ztrack
-                else:
-                    w = (d - half - carve_in) / blend
-                    w = w * w * (3 - 2 * w)  # smoothstep
-                    z = ztrack * (1 - w) + (z if zt is not None else ztrack) * w
-            row.append(bm.verts.new((x, y, z)))
-        verts.append(row)
+                    return ztrack
+                w = (d - half - carve_in) / blend
+                w = w * w * (3 - 2 * w)  # smoothstep
+                return ztrack * (1 - w) + z * w
+        return z
+
+    return ground, nearest
+
+
+def build_terrain(name, raw_pts, t, mat, step=10.0):
+    """지형 메시: 지형 격자를 step 간격으로 보간 + 트랙 주변 깎기 (make_ground)"""
+    nx, ny, x0, y0, gstep, _ = t
+    ground, _ = make_ground(raw_pts, t)
+    mx, my = int((nx - 1) * gstep / step) + 1, int((ny - 1) * gstep / step) + 1
+    bm = bmesh.new()
+    verts = [[bm.verts.new((x0 + i * step, y0 + j * step, ground(x0 + i * step, y0 + j * step))) for i in range(mx)] for j in range(my)]
     for j in range(my - 1):
         for i in range(mx - 1):
             bm.faces.new((verts[j][i], verts[j][i + 1], verts[j + 1][i + 1], verts[j + 1][i]))
@@ -316,7 +320,8 @@ def build(track_id: str = "monza"):
         if any(v is None for row in terr[5] for v in row):
             sea = material("Sea", "#1f5f8b", 0.15)
             nxg, nyg, gx0, gy0, gs, _ = terr
-            objs.append(box("Sea", (gx0 + (nxg - 1) * gs / 2, gy0 + (nyg - 1) * gs / 2, -0.55), ((nxg - 1) * gs, (nyg - 1) * gs, 0.1), sea))
+            # 바다 면: 해발 0 m (지형은 바다 쪽에서 −1 m 로 내려가 해안선에서 만난다)
+            objs.append(box("Sea", (gx0 + (nxg - 1) * gs / 2, gy0 + (nyg - 1) * gs / 2, -0.05), ((nxg - 1) * gs, (nyg - 1) * gs, 0.1), sea))
     else:
         cx, cy = (min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2
         objs.append(box("Ground", (cx, cy, -0.06), (max(xs) - min(xs) + 600, max(ys) - min(ys) + 600, 0.1), grass))

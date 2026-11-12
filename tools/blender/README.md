@@ -7,6 +7,8 @@
 |---|---|
 | `build_car.py` | `public/models/car.glb` — 가상 디자인 차 (면 약 2,600개) |
 | `build_track.py` | `public/models/monza_track.glb` — 몬차 노면·흰 선·연석·출발선·잔디·관중석<br>`public/models/monaco_track.glb` — 모나코 노면·연석·방호벽·콘크리트 바닥 |
+| `build_venue.py` | `public/models/monza_venue.glb`, `monaco_venue.glb` — **OpenStreetMap 실제 데이터**로 만든 건물·관중석·피트 레인·도로·나무·물·부두·벽 |
+| `render_venue.py` | `docs/images/venue_*.jpg` — 서킷 + 경기장 + 차 미리보기 |
 | `render_preview.py` | `docs/images/car_*.jpg`, `check_*.jpg` — 차 미리보기와 윙·디퓨저 각도 확인 그림 |
 | `render_track.py` | `docs/images/track_*.jpg` — 서킷 전체, 첫 시케인, 메인 직선, 출발선 위의 차 |
 
@@ -61,6 +63,14 @@ Blender 프로그램이 있으면 `blender --background --python tools/blender/b
 
 일반 규칙: `object.rotation[userData.axis] = userData.sign × 각도(rad)`.
 (Blender 의 +Y 축 회전이 glTF 에서는 −Z 축 회전이 되기 때문에 sign = −1.)
+
+## 경기장 (venue)
+
+- 데이터: `data/osm/*.json` (© OpenStreetMap contributors, ODbL 1.0). 받는 법: `python3 tools/fetch_osm.py`
+- 서킷 모델과 같은 좌표·같은 지면 높이 함수(`make_ground`)를 써서 건물·나무가 땅에 정확히 선다.
+- 높이 정보가 없는 건물은 종류별 가정 높이, 관중석은 트랙 쪽이 낮은 경사 좌석(가정).
+- 트랙 위를 덮는 건물은 뺐다 (3D 화면에서 차를 가리므로). `tests/venue.test.ts` 가 건물이 트랙을 막지 않는지 검사한다.
+- 화면에서 성능에 따라 켜고 끌 수 있게 서킷 모델과 별도 파일로 만든다.
 
 ## 디자인과 출처
 

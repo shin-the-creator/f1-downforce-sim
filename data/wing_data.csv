@@ -1,4 +1,4 @@
-# 기본 윙 데이터 — NeuralFoil 계산값 (실측 아님). 데이터과학 프로젝트 측정값으로 교체하세요.
+# 기본 윙 데이터 — NeuralFoil 계산값 (실측 아님). tools/generate_wing_data.py 로 생성.
 # airfoil=NACA 4412 inverted, Re=1500000, n_crit=9, tool=NeuralFoil 0.3.3 (xlarge)
 # CL: 다운포스 방향 +, CD: 항력계수, 2차원(날개 폭 무한) 계수
 angle_deg,CL,CD

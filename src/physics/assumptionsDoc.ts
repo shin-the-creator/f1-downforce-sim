@@ -35,7 +35,7 @@ export function assumptionsMarkdown(): string {
     '| 몬차 중심선·트랙 폭 (`data/tracks/monza_tum.csv`) | TUM racetrack-database (LGPL-3.0), 원본 OpenStreetMap | 평활화된 근사 형상. 자세한 내용은 `data/tracks/README.md` |',
     '| 모나코 중심선 (`data/tracks/monaco.csv`) | bacinger/f1-circuits (MIT) GeoJSON 을 변환 | **트랙 폭은 가정값 9 m**. `data/tracks/README.md` |',
     '| 고도 (`data/tracks/*_z.csv`) | Open Topo Data API: EU-DEM 25 m (빈 칸은 SRTM 30 m), 150 m 이동 평균 | **모나코 터널 구간은 입구·출구를 직선으로 이은 가정값**. 지형 표면 고도라 나무·건물이 섞일 수 있음 |',
-    '| 기본 윙 데이터 (`data/wing_data.csv`) | NeuralFoil 0.3.3 계산값, 역방향 NACA 4412, Re 1.5×10⁶ | **실측 아님.** 데이터과학 프로젝트 측정값으로 교체 예정 |',
+    '| 기본 윙 데이터 (`data/wing_data.csv`) | NeuralFoil 0.3.3 계산값, 역방향 NACA 4412, Re 1.5×10⁶ | **실측 아님** (XFoil 결과로 학습한 신경망의 계산값). 생성: `tools/generate_wing_data.py` |',
     '',
     '## 3D 경기장 (화면 연출용, 물리 계산에는 쓰지 않음)',
     '',

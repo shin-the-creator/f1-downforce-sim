@@ -2,7 +2,7 @@
 기본 윙 데이터(data/wing_data.csv) 생성 — NeuralFoil 계산값 (실측 아님)
 =====================================================================
 
-데이터과학 프로젝트의 측정 CSV 가 들어오기 전까지 쓰는 "출처가 분명한 임시 데이터"다.
+윙(역방향 NACA 4412)의 받음각별 2차원 C_L·C_D. 실측이 아니라 계산값이지만 출처(도구·조건)가 분명하다.
 
 - 날개: 위아래를 뒤집은 NACA 4412 (역방향 윙)
 - 계산 도구: NeuralFoil (XFoil 결과로 학습한 신경망, model_size="xlarge")
@@ -55,7 +55,7 @@ def main() -> None:
     cd = np.asarray(r["CD"])
     conf = np.asarray(r["analysis_confidence"])
     lines = [
-        "# 기본 윙 데이터 — NeuralFoil 계산값 (실측 아님). 데이터과학 프로젝트 측정값으로 교체하세요.",
+        "# 기본 윙 데이터 — NeuralFoil 계산값 (실측 아님). tools/generate_wing_data.py 로 생성.",
         f"# airfoil=NACA 4412 inverted, Re={RE}, n_crit=9, tool=NeuralFoil {metadata.version('neuralfoil')} (xlarge)",
         "# CL: 다운포스 방향 +, CD: 항력계수, 2차원(날개 폭 무한) 계수",
         "angle_deg,CL,CD",

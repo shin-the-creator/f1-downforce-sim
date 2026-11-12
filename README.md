@@ -47,10 +47,11 @@ npm run build # dist/ 에 정적 파일 생성
 | `data/tracks/monaco.csv` | 모나코 중심선 (트랙 폭 가정값) | bacinger/f1-circuits (MIT) 를 `tools/convert_monaco.py` 로 변환 |
 | `data/tracks/*_z.csv` | 서킷 고도 (고저차) | Open Topo Data API (EU-DEM 25 m, SRTM 30 m) — 모나코 터널 구간은 직선 가정 |
 | `data/osm/*.json` | 경기장 건물·관중석·피트 레인·도로·나무 (3D 배경) | **© OpenStreetMap contributors**, ODbL 1.0 |
-| `data/wing_data.csv` | 윙 받음각별 CL·CD | NeuralFoil 계산값 (역방향 NACA 4412, Re 1.5×10⁶) — **실측 아님, 임시 데이터** |
+| `data/wing_data.csv` | 윙 받음각별 CL·CD | NeuralFoil 계산값 (역방향 NACA 4412, Re 1.5×10⁶) — **실측 아님** |
 
-### 윙 데이터 바꾸기 (데이터과학 프로젝트 CSV)
+### 윙 데이터 형식
 
+다른 날개 단면의 데이터를 쓰고 싶을 때만 필요하다 (기본값은 위 NeuralFoil 계산값).
 형식: 머리말 `angle_deg,CL,CD`, 한 줄에 한 받음각. `#` 로 시작하는 줄은 주석(출처 기록용).
 CL 은 **다운포스 방향이 +** 인 값으로 읽는다 (부호가 반대면 `parseWingCsv(text, true)` / 화면의 부호 뒤집기 옵션).
 받음각 사이 값은 선형 보간, 범위 밖은 끝 값을 쓰고 경고한다.
